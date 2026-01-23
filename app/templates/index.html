@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TunAIde - Transcription Workspace</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind (CDN for Phase 1) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    typography: (theme) => ({
+                        DEFAULT: {
+                            css: {
+                                color: theme('colors.slate.900'),
+                            },
+                        },
+                    }),
+                }
+            },
+            plugins: [
+                // Minimal typography plugin simulation if CDN doesn't load it
+            ]
+        }
+    </script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+
+    <!-- Prose Mirror Styles (Simulation for nice text reading) -->
+    <style>
+        .prose p {
+            margin-bottom: 1.25em;
+            line-height: 1.75;
+        }
+
+        .prose {
+            max-width: 65ch;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900">
+
+    <!-- App Container -->
+    <div id="app" class="flex min-h-screen">
+        <!-- JS injects UI here -->
+        <div class="m-auto text-center p-12">
+            <div class="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4">
+            </div>
+            <p class="text-slate-500 font-medium">Loading TunAIde...</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/components.js?v=6"></script>
+    <script src="/static/js/app.js?v=6"></script>
+</body>
+
+</html>
