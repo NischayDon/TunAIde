@@ -7,6 +7,12 @@ from dotenv import load_dotenv
 
 def init_admin():
     load_dotenv()
+    # Create tables if they don't exist (CRITICAL for first run on synchronous scripts)
+    from app.db.base import Base, engine
+    # Import models to ensure they are registered
+    from app.db import models
+    Base.metadata.create_all(bind=engine)
+
     db = SessionLocal()
     username = "ADMIN_AZE"
     password = os.getenv("ADMIN_PASSWORD")
