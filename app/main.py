@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from dotenv import load_dotenv
 import os
@@ -16,7 +17,19 @@ import os
 # Create tables on startup (Phase 1 simplification)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title=settings.PROJECT_NAME)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Run admin initialization
+    try:
+        from init_admin import init_admin
+        print("Running startup admin seeding...")
+        init_admin()
+    except Exception as e:
+        print(f"Startup admin seeding failed (Non-critical): {e}")
+    yield
+    # Shutdown logic (if any)
+
+app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
