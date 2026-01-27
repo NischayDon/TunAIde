@@ -12,6 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.api import jobs, auth, admin
 from app.db.base import Base, engine
+# Import models to register them with Base.metadata before create_all
+from app.db import models 
 import os
 
 # Create tables on startup (Phase 1 simplification)
