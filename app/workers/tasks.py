@@ -23,19 +23,18 @@ def process_audio_file(job_id: str):
         print(f"Job {job_id} not found.")
         return
 
+    input_path = None
     try:
-        input_path = None
-        
         # 1. Update Status -> PROCESSING
         print(f"Starting Job {job_id}")
         job.status = JobStatus.PROCESSING.value
         db.commit()
 
-        # 2. Get Local Path (No GCS Download needed)
-        # Verify file exists
-        input_path = storage_service.get_full_path(job.storage_path)
-        if not os.path.exists(input_path):
-             raise FileNotFoundError(f"File not found at {input_path}")
+        # 2. Get Local Path (Download if GCS, Get Path if Local)
+        try:
+            input_path = storage_service.download_to_temp(job.storage_path)
+        except Exception as e:
+            raise FileNotFoundError(f"Failed to retrieve file: {e}")
 
         print(f"Processing file: {input_path}")
         
@@ -78,4 +77,11 @@ def process_audio_file(job_id: str):
         db.commit()
         
     finally:
+        # Cleanup temp file if we are in GCS mode AND input_path exists
+        if storage_service.mode == "GCS" and input_path and os.path.exists(input_path):
+             try:
+                 os.remove(input_path)
+                 print(f"Cleaned up temp file: {input_path}")
+             except Exception as cleanup_err:
+                 print(f"Warning: Failed to cleanup temp file {input_path}: {cleanup_err}")
         db.close()

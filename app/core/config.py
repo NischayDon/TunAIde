@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     GCP_PROJECT: str = "test-project"
     GCP_BUCKET_NAME: str = "tunaide-uploads"
     GCP_STORAGE_EMULATOR_HOST: str = "" # Set if using emulator
+    GCP_CREDENTIALS_JSON: str = "" # Raw JSON string for Railway/Cloud deployment
 
     # AI
     GEMINI_API_KEY: str = ""
