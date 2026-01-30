@@ -41,12 +41,12 @@ async def lifespan(app: FastAPI):
             time.sleep(2)
 
     # Startup: Run admin initialization
-    # try:
-    #     from init_admin import init_admin
-    #     print("Running startup admin seeding...")
-    #     init_admin()
-    # except Exception as e:
-    #     print(f"Startup admin seeding failed (Non-critical): {e}")
+    try:
+        from init_admin import init_admin
+        print("Running startup admin seeding...")
+        init_admin()
+    except Exception as e:
+        print(f"Startup admin seeding failed (Non-critical): {e}")
     yield
     # Shutdown logic (if any)
 

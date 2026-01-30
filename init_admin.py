@@ -14,28 +14,32 @@ def init_admin():
     Base.metadata.create_all(bind=engine)
 
     db = SessionLocal()
-    username = "ADMIN_AZE"
-    password = os.getenv("ADMIN_PASSWORD")
-    
-    if not password:
-        print("ERROR: ADMIN_PASSWORD not set in .env")
-        return
-    
-    user = db.query(User).filter(User.username == username).first()
-    
-    if not user:
-        print(f"Creating admin user {username}...")
-        user = User(
-            username=username,
-            email="admin@tunai.com", # placeholder
-            hashed_password=get_password_hash(password),
-            is_admin=True
-        )
-        db.add(user)
-    else:
-        print(f"Admin user {username} exists. Updating credentials...")
-        user.hashed_password = get_password_hash(password)
-        user.is_admin = True
+    admin_users = [
+        {"username": "ADMIN_AZE", "password": os.getenv("ADMIN_PASSWORD"), "email": "admin@tunai.com"},
+        {"username": "Chembakadas", "password": "Kangaroo@21", "email": "chembakadas@tunai.com"},
+        {"username": "Binu", "password": "dindan", "email": "binu@tunai.com"}
+    ]
+
+    for admin_data in admin_users:
+        if not admin_data["password"]:
+            print(f"Skipping {admin_data['username']}: Password not set")
+            continue
+
+        user = db.query(User).filter(User.username == admin_data["username"]).first()
+        
+        if not user:
+            print(f"Creating admin user {admin_data['username']}...")
+            user = User(
+                username=admin_data["username"],
+                email=admin_data["email"],
+                hashed_password=get_password_hash(admin_data["password"]),
+                is_admin=True
+            )
+            db.add(user)
+        else:
+            print(f"Admin user {admin_data['username']} exists. Updating credentials...")
+            user.hashed_password = get_password_hash(admin_data["password"])
+            user.is_admin = True
         
     db.commit()
     print("Admin initialization complete.")
