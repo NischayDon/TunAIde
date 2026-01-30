@@ -16,11 +16,30 @@ from app.db.base import Base, engine
 from app.db import models 
 import os
 
-# Create tables on startup (Phase 1 simplification)
-Base.metadata.create_all(bind=engine)
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup: Ensure DB is connected
+    import time
+    from sqlalchemy import text
+    
+    retries = 5
+    for i in range(retries):
+        try:
+            print(f"Checking database connection (Attempt {i+1}/{retries})...")
+            # Create tables (also verifies connection)
+            Base.metadata.create_all(bind=engine)
+            # Simple query to verify
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            print("Database connected successfully!")
+            break
+        except Exception as e:
+            if i == retries - 1:
+                print(f"Database connection failed after {retries} attempts: {e}")
+                raise e
+            print(f"Database connection failed, retrying in 2s... Error: {e}")
+            time.sleep(2)
+
     # Startup: Run admin initialization
     # try:
     #     from init_admin import init_admin

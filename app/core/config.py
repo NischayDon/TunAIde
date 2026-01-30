@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     # AI
     GEMINI_API_KEY: str = ""
 
+    # Validator to fix postgres:// -> postgresql://
+    @property
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        if self.DATABASE_URL and self.DATABASE_URL.startswith("postgres://"):
+            return self.DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        return self.DATABASE_URL
+
     class Config:
         env_file = ".env"
         case_sensitive = True
