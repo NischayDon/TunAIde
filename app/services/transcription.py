@@ -48,8 +48,15 @@ class TranscriptionService:
                 upload_result = self.client.files.get(name=file_name)
 
             print(f"File State: {upload_result.state.name}")
+            print(f"File URI: {upload_result.uri}")
+            print(f"File MIME: {upload_result.mime_type}")
+            print(f"File Size: {upload_result.size_bytes} bytes")
+
             if upload_result.state.name == "FAILED":
                 raise Exception("Audio file processing failed on Gemini side.")
+            
+            if upload_result.size_bytes == 0:
+                 raise Exception("Uploaded file size is 0 bytes. Logic error in file handling.")
 
             print("Generating transcript...")
             
