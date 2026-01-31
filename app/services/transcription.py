@@ -11,7 +11,7 @@ class TranscriptionService:
         self.api_key = settings.GEMINI_API_KEY
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
-            self.model_id = "gemini-1.5-flash" # Switching to 1.5 Flash (Production Stable)
+            self.model_id = "gemini-3.0-flash" # Upgrading to 3.0 with normalization + parsing fixes
 
         else:
             self.client = None
