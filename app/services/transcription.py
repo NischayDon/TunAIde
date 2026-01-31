@@ -106,55 +106,58 @@ class TranscriptionService:
             duration_seconds = 0
             
             try:
-                text_response = response.text
-                # Clean up potential markdown wrapping
-                if text_response.startswith("```json"):
-                    text_response = text_response[7:]
-                if text_response.startswith("```"):
-                    text_response = text_response[3:]
-                if text_response.endswith("```"):
-                    text_response = text_response[:-3]
-                
-                text_response = text_response.strip()
-                
-                try:
-                    transcript_data = json.loads(text_response)
-                except json.JSONDecodeError:
-                     # Try to find JSON object via regex if mixed with text
-                     import re
-                     match = re.search(r'\{.*\}', text_response, re.DOTALL)
-                     if match:
-                         transcript_data = json.loads(match.group(0))
-                     else:
-                         raise
-
-                
-                # Construct plain text from segments
-                if "segments" in transcript_data:
-                    segments = transcript_data["segments"]
-                    plain_text = "\n".join([seg["text"] for seg in segments])
-                    
-                    # Calculate duration from last segment
-                    if segments:
-                        last_seg = segments[-1]
-                        end_time_str = last_seg.get("end", "00:00")
-                        # Parse MM:SS
-                        try:
-                            parts = end_time_str.split(":")
-                            if len(parts) == 2:
-                                duration_seconds = int(parts[0]) * 60 + int(parts[1])
-                            elif len(parts) == 3: # HH:MM:SS
-                                duration_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
-                        except Exception:
-                            print(f"Failed to parse duration from {end_time_str}")
-                            
+                # Check for safety blocks or other issues
+                if not response.candidates or not response.candidates[0].content:
+                     print(f"Warning: No content generated. Finish Reason: {response.candidates[0].finish_reason if response.candidates else 'UNKNOWN'}")
+                     plain_text = "[Transcription Blocked or Empty - Check Safety Settings]"
+                     transcript_data = {"segments": [], "error": "Blocked/Empty"}
                 else:
-                    plain_text = text_response
+                    text_response = response.text
+                    # Clean up potential markdown wrapping
+                    if text_response.startswith("```json"):
+                        text_response = text_response[7:]
+                    if text_response.startswith("```"):
+                        text_response = text_response[3:]
+                    if text_response.endswith("```"):
+                        text_response = text_response[:-3]
                     
+                    text_response = text_response.strip()
+                    
+                    try:
+                        transcript_data = json.loads(text_response)
+                    except json.JSONDecodeError:
+                         # Try to find JSON object via regex if mixed with text
+                         import re
+                         match = re.search(r'\{.*\}', text_response, re.DOTALL)
+                         if match:
+                             transcript_data = json.loads(match.group(0))
+                         else:
+                             # Fallback to plain text if no JSON found
+                             plain_text = text_response
+                             transcript_data = {"segments": []}
+
+                    # Construct plain text from segments if available
+                    if "segments" in transcript_data:
+                        segments = transcript_data["segments"]
+                        plain_text = "\n".join([seg["text"] for seg in segments])
+                        
+                        # Calculate duration from last segment
+                        if segments:
+                            last_seg = segments[-1]
+                            end_time_str = last_seg.get("end", "00:00")
+                            try:
+                                parts = end_time_str.split(":")
+                                if len(parts) == 2:
+                                    duration_seconds = int(parts[0]) * 60 + int(parts[1])
+                                elif len(parts) == 3: # HH:MM:SS
+                                    duration_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+                            except Exception:
+                                print(f"Failed to parse duration from {end_time_str}")
+
             except Exception as e:
                 print(f"Failed to parse JSON response: {e}")
-                plain_text = response.text
-                transcript_data = {"segments": [], "raw": response.text}
+                plain_text = "Error parsing transcription response."
+                transcript_data = {"segments": [], "error": str(e)}
 
             return {
                 "text": plain_text,
