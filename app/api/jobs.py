@@ -77,8 +77,10 @@ def initiate_upload(
     user: User = Depends(get_current_user)
 ):
     try:
+        print(f"Starting upload for file: {file.filename}")
         # Save file to local storage
         saved_filename = storage_service.save_file(file.file, file.filename)
+        print(f"File saved successfully at: {saved_filename}")
         
         # Create Job Record
         new_job = Job(
@@ -90,6 +92,7 @@ def initiate_upload(
         db.add(new_job)
         db.commit()
         db.refresh(new_job)
+        print(f"Job created successfully: {new_job.id}")
 
         return UploadResponse(
             upload_url="",
@@ -97,7 +100,9 @@ def initiate_upload(
             storage_path=new_job.storage_path
         )
     except Exception as e:
-        print(f"Upload failed: {e}")
+        import traceback
+        traceback.print_exc()
+        print(f"CRITICAL UPLOAD FAILURE: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 @router.post("/{job_id}/process", response_model=JobResponse)
