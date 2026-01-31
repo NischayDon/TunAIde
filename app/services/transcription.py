@@ -37,10 +37,8 @@ class TranscriptionService:
             }
 
         try:
-            print(f"Uploading file {file_path} to Gemini...")
-            
-            # 1. Upload the file
-            upload_result = self.client.files.upload(path=file_path)
+            # NOTE: New SDK uses 'client.files.upload'
+            upload_result = self.client.files.upload(file=file_path)
             file_name = upload_result.name
             
             # 2. Wait for processing
