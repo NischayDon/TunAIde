@@ -1,23 +1,26 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from app.core.config import settings
 import os
 import time
+import json
+import shutil
 
 class TranscriptionService:
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY
         if self.api_key:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel("models/gemini-3-flash-preview")
+            self.client = genai.Client(api_key=self.api_key)
+            self.model_id = "gemini-2.0-flash" # Updated to latest stable flash model
         else:
-            self.model = None
+            self.client = None
 
     def transcribe_audio(self, file_path: str):
         """
         Transcribes the audio file using Google Gemini API.
         Returns the transcript text.
         """
-        if not self.model:
+        if not self.client:
             # Fallback for dev/testing without keys
             print("WARNING: Gemini API Key missing. Returning mock transcript.")
             return {
@@ -36,38 +39,29 @@ class TranscriptionService:
         try:
             print(f"Uploading file {file_path} to Gemini...")
             
-            # Determine MIME type
-            mime_type = "audio/wav" # default
-            if file_path.endswith(".mp3"):
-                mime_type = "audio/mpeg"
-            elif file_path.endswith(".ogg"):
-                mime_type = "audio/ogg"
-            elif file_path.endswith(".m4a"):
-                mime_type = "audio/mp4"
+            # 1. Upload the file
+            # The new SDK handles mime-types automatically or via config, 
+            # but usually just 'client.files.upload' is enough.
+            # However, for stability, we can specify if needed.
             
-            # Upload the file to Gemini
-            audio_file = genai.upload_file(file_path, mime_type=mime_type)
+            # NOTE: New SDK uses 'client.files.upload'
+            upload_result = self.client.files.upload(path=file_path)
             
-            # Wait for processing state to be ACTIVE
-            while audio_file.state.name == "PROCESSING":
+            file_name = upload_result.name
+            
+            # 2. Wait for processing
+            while upload_result.state.name == "PROCESSING":
                 print("Waiting for audio file processing...")
                 time.sleep(1)
-                audio_file = genai.get_file(audio_file.name)
+                upload_result = self.client.files.get(name=file_name)
 
-            print(f"File State: {audio_file.state.name}")
-            if audio_file.state.name == "FAILED":
+            print(f"File State: {upload_result.state.name}")
+            if upload_result.state.name == "FAILED":
                 raise Exception("Audio file processing failed on Gemini side.")
 
             print("Generating transcript...")
-            # Configure safety settings to avoid blocking
-            safety_settings = [
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-            ]
             
-            # Request JSON structure
+            # 3. Generate Content with Config
             prompt = """
             Transcribe the audio file. 
             Return a JSON object in the following format:
@@ -78,62 +72,68 @@ class TranscriptionService:
             }
             1. The "text" field must contain ONLY the spoken words. Do NOT include the timestamp in the "text" field.
             2. The "start" and "end" timestamps must be formatted as MM:SS.
-            3. Return ONLY the JSON object. Do not include any "Thinking Process", markdown formatting (like ```json), or introductory text. 
+            3. Return ONLY the JSON object.
             """
+
+            # New SDK generation call
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=[
+                    upload_result,
+                    prompt
+                ],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    safety_settings=[
+                        types.SafetySetting(
+                            category="HARM_CATEGORY_HARASSMENT",
+                            threshold="BLOCK_NONE"
+                        ),
+                        types.SafetySetting(
+                            category="HARM_CATEGORY_HATE_SPEECH",
+                            threshold="BLOCK_NONE"
+                        ),
+                        types.SafetySetting(
+                            category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                            threshold="BLOCK_NONE"
+                        ),
+                        types.SafetySetting(
+                            category="HARM_CATEGORY_DANGEROUS_CONTENT",
+                            threshold="BLOCK_NONE"
+                        ),
+                    ]
+                )
+            )
             
-            response = self.model.generate_content([
-                prompt,
-                audio_file
-            ], safety_settings=safety_settings, generation_config={"response_mime_type": "application/json"})
-            
-            # Extract text (or handle partial)
-            import json
-            import re
+            # 4. Parse Response
             transcript_data = {}
             plain_text = ""
             
             try:
+                # The response.text should be JSON string now due to response_mime_type
                 text_response = response.text
-                
-                # Attempt to clean up if Gemini includes markdown or text
-                # Find first { and last }
-                start_idx = text_response.find('{')
-                end_idx = text_response.rfind('}')
-                
-                if start_idx != -1 and end_idx != -1:
-                    json_str = text_response[start_idx:end_idx+1]
-                    transcript_data = json.loads(json_str)
-                else:
-                    # Try direct load if no braces found (unlikely for object)
-                    transcript_data = json.loads(text_response)
+                transcript_data = json.loads(text_response)
                 
                 # Construct plain text from segments
                 if "segments" in transcript_data:
                     plain_text = "\n".join([seg["text"] for seg in transcript_data["segments"]])
                 else:
-                    raise ValueError("No segments found in JSON")
-
-            except (ValueError, json.JSONDecodeError):
-                # Fallback if not valid JSON (shouldn't happen with generation_config but good to be safe)
-                print("Failed to parse JSON response. Using raw text.")
+                    # Fallback if structure is slightly off
+                    plain_text = text_response
+                    
+            except Exception as e:
+                print(f"Failed to parse JSON response: {e}")
                 plain_text = response.text
                 transcript_data = {"segments": [], "raw": response.text}
-            except Exception as e:
-                # Handle safety block or other errors
-                if response.prompt_feedback:
-                     print(f"Prompt feedback: {response.prompt_feedback}")
-                if response.candidates and response.candidates[0].finish_reason:
-                     print(f"Finish reason: {response.candidates[0].finish_reason}")
-                raise Exception(f"Transcription error: {e}")
 
-            # Clean up file from Gemini storage (optional but good practice)
-            # genai.delete_file(audio_file.name) 
+            # 5. Cleanup (Optional, but polite)
+            # self.client.files.delete(name=file_name)
             
             return {
                 "text": plain_text,
                 "metadata": {
                     "duration": 0, 
-                    "model": "gemini-3-flash-preview",
+                    "model": self.model_id,
                     "segments": transcript_data.get("segments", [])
                 }
             }
