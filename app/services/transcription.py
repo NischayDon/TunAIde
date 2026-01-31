@@ -11,7 +11,8 @@ class TranscriptionService:
         self.api_key = settings.GEMINI_API_KEY
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
-            self.model_id = "gemini-3.0-flash" # Retrying 3.0 with robust parsing logic
+            self.model_id = "gemini-1.5-flash" # Switching to 1.5 Flash (Production Stable)
+
         else:
             self.client = None
 
@@ -45,7 +46,12 @@ class TranscriptionService:
             while upload_result.state.name == "PROCESSING":
                 print("Waiting for audio file processing...")
                 time.sleep(1)
-                upload_result = self.client.files.get(name=file_name)
+                try:
+                    upload_result = self.client.files.get(name=file_name)
+                except Exception as e:
+                    print(f"Warning: transient polling error: {e}")
+                    time.sleep(1) # Wait a bit more before retrying
+                    continue
 
             print(f"File State: {upload_result.state.name}")
             print(f"File URI: {upload_result.uri}")
