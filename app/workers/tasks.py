@@ -38,12 +38,27 @@ def process_audio_file(job_id: str):
 
         print(f"Processing file: {input_path}")
         
-        # 3. Skip Normalization (FFmpeg missing) - Send original file to Gemini
-        print("Skipping normalization (ffmpeg not found/required). Using original file.")
+        # 3. Normalization (Ensure standard MP3 for Gemini)
+        print("Normalizing audio with ffmpeg...")
+        output_path = f"{input_path}.mp3"
+        try:
+            # -y: overwrite, -vn: no video, -acodec libmp3lame: mp3 codec, -q:a 4: decent quality
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", input_path, "-vn", "-acodec", "libmp3lame", "-q:a", "4", output_path],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            print(f"Normalization successful: {output_path}")
+            # Update input_path to the normalized file
+            # Original input_path will be cleaned up in finally block if GCS (or we should clean it here)
+            input_path = output_path
+        except subprocess.CalledProcessError as e:
+            print(f"FFmpeg normalization failed: {e.stderr.decode()}")
+            print("Falling back to original file.")
+        except FileNotFoundError:
+             print("FFmpeg not found in path. Using original file.")
         
-        # Duration: Skip local calculation for non-wav files (or better, rely on metadata if possible later)
-        duration_sec = 0
-
         # 4. Transcribe
         print("Transcribing...")
         job.status = JobStatus.TRANSCRIBING.value

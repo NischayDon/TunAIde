@@ -42,10 +42,15 @@ class TranscriptionService:
             upload_result = self.client.files.upload(file=file_path)
             file_name = upload_result.name
             
-            # 2. Wait for processing
+            # 2. Wait for processing (Max 2 minutes)
+            start_time = time.time()
             while upload_result.state.name == "PROCESSING":
-                print("Waiting for audio file processing...")
-                time.sleep(1)
+                elapsed = time.time() - start_time
+                if elapsed > 120:
+                     raise TimeoutError("Gemini processing timed out (formatting issue or service slow).")
+                
+                print(f"Waiting for audio file processing... ({int(elapsed)}s)")
+                time.sleep(2)
                 try:
                     upload_result = self.client.files.get(name=file_name)
                 except Exception as e:
