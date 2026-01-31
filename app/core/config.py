@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     GCP_STORAGE_EMULATOR_HOST: str = "" # Set if using emulator
     GCP_CREDENTIALS_JSON: str = "" # Raw JSON string for Railway/Cloud deployment
 
+    # S3 / Railway Bucket Settings
+    S3_ENDPOINT_URL: str | None = None
+    S3_ACCESS_KEY_ID: str | None = None
+    S3_SECRET_ACCESS_KEY: str | None = None
+    S3_BUCKET_NAME: str | None = None
+    S3_REGION_NAME: str = "us-east-1"
+
     # AI
     GEMINI_API_KEY: str = ""
 
