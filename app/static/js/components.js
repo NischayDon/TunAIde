@@ -109,11 +109,15 @@ const Components = {
                                         ${u.last_login ? new Date(u.last_login).toLocaleDateString() : 'N/A'}
                                     </td>
                                     <td class="px-6 py-4 text-right">
-                                        ${u.username !== App.state.user.username ? `
+                                        ${u.username === App.state.user.username ?
+            '<span class="text-slate-400 text-sm italic">Current User</span>' :
+            u.is_admin ?
+                '<span class="text-slate-400 text-sm italic">Admin</span>' :
+                `
                                             <button onclick="App.deleteUser('${u.username}')" class="text-red-600 hover:text-red-900 text-sm font-medium">
                                                 Delete
                                             </button>
-                                        ` : '<span class="text-slate-400 text-sm italic">Current User</span>'}
+                                        `}
                                     </td>
                                 </tr>
                             `).join('') : `

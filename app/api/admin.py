@@ -15,6 +15,7 @@ class UserStat(BaseModel):
     upload_count: int
     transcribed_minutes: float
     last_login: str | None = None
+    is_admin: bool = False
 
 @router.get("/users", response_model=List[UserStat])
 def get_user_stats(
@@ -41,7 +42,8 @@ def get_user_stats(
             username=u.username,
             upload_count=job_count,
             transcribed_minutes=minutes,
-            last_login=str(u.last_login) if u.last_login else None
+            last_login=str(u.last_login) if u.last_login else None,
+            is_admin=u.is_admin
         ))
         
     return stats
