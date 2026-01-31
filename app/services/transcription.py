@@ -40,13 +40,7 @@ class TranscriptionService:
             print(f"Uploading file {file_path} to Gemini...")
             
             # 1. Upload the file
-            # The new SDK handles mime-types automatically or via config, 
-            # but usually just 'client.files.upload' is enough.
-            # However, for stability, we can specify if needed.
-            
-            # NOTE: New SDK uses 'client.files.upload'
             upload_result = self.client.files.upload(path=file_path)
-            
             file_name = upload_result.name
             
             # 2. Wait for processing
@@ -75,32 +69,16 @@ class TranscriptionService:
             3. Return ONLY the JSON object.
             """
 
-            # New SDK generation call
             response = self.client.models.generate_content(
                 model=self.model_id,
-                contents=[
-                    upload_result,
-                    prompt
-                ],
+                contents=[upload_result, prompt],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     safety_settings=[
-                        types.SafetySetting(
-                            category="HARM_CATEGORY_HARASSMENT",
-                            threshold="BLOCK_NONE"
-                        ),
-                        types.SafetySetting(
-                            category="HARM_CATEGORY_HATE_SPEECH",
-                            threshold="BLOCK_NONE"
-                        ),
-                        types.SafetySetting(
-                            category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                            threshold="BLOCK_NONE"
-                        ),
-                        types.SafetySetting(
-                            category="HARM_CATEGORY_DANGEROUS_CONTENT",
-                            threshold="BLOCK_NONE"
-                        ),
+                        types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+                        types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+                        types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+                        types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
                     ]
                 )
             )
@@ -108,17 +86,32 @@ class TranscriptionService:
             # 4. Parse Response
             transcript_data = {}
             plain_text = ""
+            duration_seconds = 0
             
             try:
-                # The response.text should be JSON string now due to response_mime_type
                 text_response = response.text
                 transcript_data = json.loads(text_response)
                 
                 # Construct plain text from segments
                 if "segments" in transcript_data:
-                    plain_text = "\n".join([seg["text"] for seg in transcript_data["segments"]])
+                    segments = transcript_data["segments"]
+                    plain_text = "\n".join([seg["text"] for seg in segments])
+                    
+                    # Calculate duration from last segment
+                    if segments:
+                        last_seg = segments[-1]
+                        end_time_str = last_seg.get("end", "00:00")
+                        # Parse MM:SS
+                        try:
+                            parts = end_time_str.split(":")
+                            if len(parts) == 2:
+                                duration_seconds = int(parts[0]) * 60 + int(parts[1])
+                            elif len(parts) == 3: # HH:MM:SS
+                                duration_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+                        except Exception:
+                            print(f"Failed to parse duration from {end_time_str}")
+                            
                 else:
-                    # Fallback if structure is slightly off
                     plain_text = text_response
                     
             except Exception as e:
@@ -126,13 +119,10 @@ class TranscriptionService:
                 plain_text = response.text
                 transcript_data = {"segments": [], "raw": response.text}
 
-            # 5. Cleanup (Optional, but polite)
-            # self.client.files.delete(name=file_name)
-            
             return {
                 "text": plain_text,
                 "metadata": {
-                    "duration": 0, 
+                    "duration": duration_seconds, 
                     "model": self.model_id,
                     "segments": transcript_data.get("segments", [])
                 }

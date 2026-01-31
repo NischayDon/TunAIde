@@ -62,7 +62,8 @@ def process_audio_file(job_id: str):
         
         # 6. Complete Job
         job.status = JobStatus.COMPLETED.value
-        job.duration_seconds = duration_sec
+        # Use duration from metadata (calculated in service)
+        job.duration_seconds = transcription_result["metadata"].get("duration", 0) 
         # Update file size too if useful? 
         # job.file_size_bytes = os.path.getsize(input_path) 
             

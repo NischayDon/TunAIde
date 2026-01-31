@@ -90,6 +90,9 @@ def delete_user(
     user_to_delete = db.query(User).filter(User.username == username).first()
     if not user_to_delete:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    if user_to_delete.is_admin:
+        raise HTTPException(status_code=403, detail="Cannot delete administrator accounts")
     
     db.delete(user_to_delete)
     db.commit()
