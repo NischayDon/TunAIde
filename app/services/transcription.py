@@ -54,6 +54,7 @@ class TranscriptionService:
             print("Generating transcript...")
             
             # 3. Generate Content with Config
+            # 3. Generate Content with Config
             prompt = """
             Transcribe the audio file. 
             Return a JSON object in the following format:
@@ -64,14 +65,14 @@ class TranscriptionService:
             }
             1. The "text" field must contain ONLY the spoken words. Do NOT include the timestamp in the "text" field.
             2. The "start" and "end" timestamps must be formatted as MM:SS.
-            3. Return ONLY the JSON object.
+            3. Return ONLY the JSON object. Do not wrap it in markdown code blocks.
             """
 
             response = self.client.models.generate_content(
                 model=self.model_id,
                 contents=[upload_result, prompt],
                 config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
+                    # remove strict json enforcement to avoid 500 errors
                     safety_settings=[
                         types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
                         types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
@@ -88,7 +89,27 @@ class TranscriptionService:
             
             try:
                 text_response = response.text
-                transcript_data = json.loads(text_response)
+                # Clean up potential markdown wrapping
+                if text_response.startswith("```json"):
+                    text_response = text_response[7:]
+                if text_response.startswith("```"):
+                    text_response = text_response[3:]
+                if text_response.endswith("```"):
+                    text_response = text_response[:-3]
+                
+                text_response = text_response.strip()
+                
+                try:
+                    transcript_data = json.loads(text_response)
+                except json.JSONDecodeError:
+                     # Try to find JSON object via regex if mixed with text
+                     import re
+                     match = re.search(r'\{.*\}', text_response, re.DOTALL)
+                     if match:
+                         transcript_data = json.loads(match.group(0))
+                     else:
+                         raise
+
                 
                 # Construct plain text from segments
                 if "segments" in transcript_data:
