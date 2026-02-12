@@ -11,7 +11,7 @@ class TranscriptionService:
         self.api_key = settings.GEMINI_API_KEY
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
-            self.model_id = "gemini-2.5-flash" # Selected from user's list (Gemini 2.5 Flash)
+            self.model_id = "gemini-1.5-pro" # Switching to 1.5 Pro (Best Quality)
 
         else:
             self.client = None
