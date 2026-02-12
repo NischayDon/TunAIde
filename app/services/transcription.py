@@ -122,6 +122,8 @@ class TranscriptionService:
                         text_response = text_response[:-3]
                     
                     text_response = text_response.strip()
+                    # Log raw response for debugging
+                    print(f"Raw Model Response: {text_response[:1000]}...")
                     
                     try:
                         transcript_data = json.loads(text_response)
@@ -137,9 +139,10 @@ class TranscriptionService:
                              transcript_data = {"segments": []}
 
                     # Construct plain text from segments if available
-                    if "segments" in transcript_data:
+                    if "segments" in transcript_data and isinstance(transcript_data["segments"], list):
                         segments = transcript_data["segments"]
-                        plain_text = "\n".join([seg["text"] for seg in segments])
+                        # Robust extraction
+                        plain_text = "\n".join([str(seg.get("text", "")) for seg in segments if isinstance(seg, dict)])
                         
                         # Calculate duration from last segment
                         if segments:
