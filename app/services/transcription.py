@@ -11,7 +11,7 @@ class TranscriptionService:
         self.api_key = settings.GEMINI_API_KEY
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
-            self.model_id = "gemini-2.5-pro" # Fallback: 3.0 not found, using latest available Pro model
+            self.model_id = "gemini-1.5-pro" # Reverting to 1.5 Pro (Stable, widely available)
 
         else:
             self.client = None
