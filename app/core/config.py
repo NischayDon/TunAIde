@@ -26,8 +26,21 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str | None = None
     S3_REGION_NAME: str = "us-east-1"
 
-    # AI
-    GEMINI_API_KEY: str = ""
+    # AI (OpenRouter)
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_MODEL: str = "openai/whisper-large-v3"
+
+    # Auth
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 300
+
+    # Email (FastAPI-Mail)
+    MAIL_USERNAME: str = ""
+    MAIL_PASSWORD: str = ""
+    MAIL_FROM: str = "noreply@example.com"
+    MAIL_PORT: int = 587
+    MAIL_SERVER: str = "smtp.gmail.com"
+    MAIL_STARTTLS: bool = True
+    MAIL_SSL: bool = False
 
     # Validator to fix postgres:// -> postgresql://
     @property

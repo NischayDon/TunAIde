@@ -13,8 +13,7 @@ from app.core.config import settings
 from app.api import jobs, auth, admin
 from app.db.base import Base, engine
 # Import models to register them with Base.metadata before create_all
-from app.db import models 
-import os
+from app.db import models
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

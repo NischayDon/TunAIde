@@ -1,58 +1,58 @@
+"""
+Quick script to verify OpenRouter API connectivity and list available models.
+Usage: python check_models.py
+"""
 import os
 import sys
+import requests
 from dotenv import load_dotenv
 
-# Add current directory to path
 sys.path.append(os.getcwd())
-
-# Load environment variables
 load_dotenv()
-
-try:
-    from google import genai
-except ImportError:
-    print("google-genai not installed. Please install it.")
-    sys.exit(1)
 
 from app.core.config import settings
 
-def list_models():
-    api_key = settings.GEMINI_API_KEY
-    if not api_key:
-        print("Error: GEMINI_API_KEY not found in settings/env.")
+
+def check_openrouter():
+    api_key = settings.OPENROUTER_API_KEY
+    if not api_key or api_key == "your-openrouter-api-key-here":
+        print("Error: OPENROUTER_API_KEY not set in .env")
         return
 
-    print(f"Using API Key: {api_key[:5]}...{api_key[-4:]}")
-    
+    print(f"Using API Key: {api_key[:8]}...{api_key[-4:]}")
+    print(f"Configured Model: {settings.OPENROUTER_MODEL}")
+
     try:
-        client = genai.Client(api_key=api_key)
-        print("\n--- Available Gemini Models ---")
-        models = list(client.models.list())
-        found_3 = False
-        
-        for m in models:
-            # Inspection for debugging
-            # print(dir(m)) 
-            
-            # The attribute might be different in this SDK version
-            methods = getattr(m, "supported_generation_methods", [])
-            
-            # Print ALL models that look like gems
-            if "gemini" in m.name.lower():
-                 print(f"ID: {m.name}")
-                 print(f"   Display Name: {m.display_name}")
-                 print(f"   Supported Methods: {methods}")
-                 print("-" * 30)
+        # Check available models
+        res = requests.get(
+            "https://openrouter.ai/api/v1/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=10,
+        )
 
-            if "gemini-3" in m.name.lower():
-                found_3 = True
+        if res.status_code != 200:
+            print(f"Failed to list models: {res.status_code} - {res.text}")
+            return
 
-        if not found_3:
-            print("\nWARNING: No 'gemini-3' models found in the list.")
-            print("Usage Note: Some new models require 'gemini-experimental' or specific -exp versions.")
+        models = res.json().get("data", [])
+        print(f"\n--- Found {len(models)} models ---")
+
+        # Check if our configured model exists
+        configured = settings.OPENROUTER_MODEL
+        found = any(m["id"] == configured for m in models)
+
+        if found:
+            print(f"\n✓ Configured model '{configured}' is available.")
+        else:
+            print(f"\n✗ Configured model '{configured}' NOT found!")
+            # Show similar models
+            similar = [m["id"] for m in models if "whisper" in m["id"].lower()]
+            if similar:
+                print(f"  Similar models: {', '.join(similar)}")
 
     except Exception as e:
-        print(f"Failed to list models: {e}")
+        print(f"Failed to connect to OpenRouter: {e}")
+
 
 if __name__ == "__main__":
-    list_models()
+    check_openrouter()

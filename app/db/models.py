@@ -1,8 +1,7 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Integer, ForeignKey, Text, Enum, DateTime, BigInteger, JSON, Boolean
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, Integer, ForeignKey, Text, DateTime, BigInteger, JSON, Boolean
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
 import enum
 from app.db.base import Base
 
@@ -25,7 +24,7 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     last_login = Column(DateTime, nullable=True)
     
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     jobs = relationship("Job", back_populates="user")
 
@@ -43,8 +42,8 @@ class Job(Base):
     file_size_bytes = Column(BigInteger, nullable=True)
     error_message = Column(Text, nullable=True)
     
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="jobs")
     transcript = relationship("Transcript", back_populates="job", uselist=False, cascade="all, delete-orphan")
@@ -58,6 +57,6 @@ class Transcript(Base):
     text_content = Column(Text, nullable=False)
     json_metadata = Column(JSON, nullable=True) # Timestamps, confidence, etc.
     
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     job = relationship("Job", back_populates="transcript")

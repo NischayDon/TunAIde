@@ -1,177 +1,108 @@
-from google import genai
-from google.genai import types
-from app.core.config import settings
+import requests
+import base64
 import os
-import time
 import json
-import shutil
+from app.core.config import settings
+
 
 class TranscriptionService:
     def __init__(self):
-        self.api_key = settings.GEMINI_API_KEY
-        if self.api_key:
-            self.client = genai.Client(api_key=self.api_key)
-            self.model_id = "gemini-1.5-pro" # Reverting to 1.5 Pro (Stable, widely available)
+        self.api_key = settings.OPENROUTER_API_KEY
+        self.base_url = "https://openrouter.ai/api/v1"
+        self.model_id = settings.OPENROUTER_MODEL
 
+        if self.api_key:
+            print(f"TranscriptionService initialized with OpenRouter model: {self.model_id}")
         else:
-            self.client = None
+            print("WARNING: OPENROUTER_API_KEY not set. Transcription will use mock data.")
 
     def transcribe_audio(self, file_path: str):
         """
-        Transcribes the audio file using Google Gemini API.
+        Transcribes the audio file using OpenRouter's audio transcription API.
         Returns the transcript text.
         """
-        if not self.client:
+        if not self.api_key:
             # Fallback for dev/testing without keys
-            print("WARNING: Gemini API Key missing. Returning mock transcript.")
+            print("WARNING: OpenRouter API Key missing. Returning mock transcript.")
             return {
-                "text": "This is a simulated transcript from Gemini (Mock) because no API key was provided. The system is working correctly.\nThis is the second segment of the mock transcription to demonstrate timestamps.",
+                "text": "This is a simulated transcript (Mock) because no API key was provided. The system is working correctly.\nThis is the second segment of the mock transcription to demonstrate the system.",
                 "metadata": {
-                    "mock": True, 
+                    "mock": True,
                     "duration": 42.0,
-                    "segments": [
-                        {"start": "00:00", "end": "00:05", "text": "This is a simulated transcript from Gemini (Mock) because no API key was provided."},
-                        {"start": "00:05", "end": "00:10", "text": "The system is working correctly."},
-                        {"start": "00:10", "end": "00:15", "text": "This is the second segment of the mock transcription to demonstrate timestamps."}
-                    ]
+                    "segments": []
                 }
             }
 
         try:
-            # NOTE: New SDK uses 'client.files.upload'
-            upload_result = self.client.files.upload(file=file_path)
-            file_name = upload_result.name
-            
-            # 2. Wait for processing (Max 2 minutes)
-            start_time = time.time()
-            while upload_result.state.name == "PROCESSING":
-                elapsed = time.time() - start_time
-                if elapsed > 120:
-                     raise TimeoutError("Gemini processing timed out (formatting issue or service slow).")
-                
-                print(f"Waiting for audio file processing... ({int(elapsed)}s)")
-                time.sleep(2)
-                try:
-                    upload_result = self.client.files.get(name=file_name)
-                except Exception as e:
-                    print(f"Warning: transient polling error: {e}")
-                    time.sleep(1) # Wait a bit more before retrying
-                    continue
+            # 1. Read and base64-encode the audio file
+            print(f"Reading audio file: {file_path}")
+            with open(file_path, "rb") as f:
+                audio_data = base64.b64encode(f.read()).decode("utf-8")
 
-            print(f"File State: {upload_result.state.name}")
-            print(f"File URI: {upload_result.uri}")
-            print(f"File MIME: {upload_result.mime_type}")
-            print(f"File Size: {upload_result.size_bytes} bytes")
+            file_size = os.path.getsize(file_path)
+            print(f"File size: {file_size} bytes")
 
-            if upload_result.state.name == "FAILED":
-                raise Exception("Audio file processing failed on Gemini side.")
-            
-            if upload_result.size_bytes == 0:
-                 raise Exception("Uploaded file size is 0 bytes. Logic error in file handling.")
+            if file_size == 0:
+                raise Exception("Audio file is 0 bytes. Logic error in file handling.")
 
-            print("Generating transcript...")
-            
-            # 3. Generate Content with Config
-            # 3. Generate Content with Config
-            prompt = """
-            Transcribe the audio file. 
-            Return a JSON object in the following format:
-            {
-                "segments": [
-                    {"start": "MM:SS", "end": "MM:SS", "text": "transcription segment..."}
-                ]
+            # Determine audio format from extension
+            ext = file_path.rsplit(".", 1)[-1].lower() if "." in file_path else "mp3"
+            format_map = {
+                "mp3": "mp3", "wav": "wav", "flac": "flac",
+                "m4a": "m4a", "ogg": "ogg", "webm": "webm",
+                "mp4": "mp4", "mpeg": "mpeg",
             }
-            1. The "text" field must contain ONLY the spoken words. Do NOT include the timestamp in the "text" field.
-            2. The "start" and "end" timestamps must be formatted as MM:SS.
-            3. Return ONLY the JSON object. Do not wrap it in markdown code blocks.
-            """
+            audio_format = format_map.get(ext, "mp3")
 
-            response = self.client.models.generate_content(
-                model=self.model_id,
-                contents=[upload_result, prompt],
-                config=types.GenerateContentConfig(
-                    # remove strict json enforcement to avoid 500 errors
-                    safety_settings=[
-                        types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
-                        types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
-                        types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
-                        types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
-                    ]
-                )
+            # 2. Call OpenRouter audio transcription endpoint
+            print(f"Sending to OpenRouter ({self.model_id})...")
+            response = requests.post(
+                f"{self.base_url}/audio/transcriptions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self.model_id,
+                    "input_audio": {
+                        "data": audio_data,
+                        "format": audio_format,
+                    },
+                },
+                timeout=300,  # 5 minute timeout for large files
             )
-            
-            # 4. Parse Response
-            transcript_data = {}
-            plain_text = ""
-            duration_seconds = 0
-            
-            try:
-                # Check for safety blocks or other issues
-                if not response.candidates or not response.candidates[0].content:
-                     print(f"Warning: No content generated. Finish Reason: {response.candidates[0].finish_reason if response.candidates else 'UNKNOWN'}")
-                     plain_text = "[Transcription Blocked or Empty - Check Safety Settings]"
-                     transcript_data = {"segments": [], "error": "Blocked/Empty"}
-                else:
-                    text_response = response.text
-                    # Clean up potential markdown wrapping
-                    if text_response.startswith("```json"):
-                        text_response = text_response[7:]
-                    if text_response.startswith("```"):
-                        text_response = text_response[3:]
-                    if text_response.endswith("```"):
-                        text_response = text_response[:-3]
-                    
-                    text_response = text_response.strip()
-                    # Log raw response for debugging
-                    print(f"Raw Model Response: {text_response[:1000]}...")
-                    
-                    try:
-                        transcript_data = json.loads(text_response)
-                    except json.JSONDecodeError:
-                         # Try to find JSON object via regex if mixed with text
-                         import re
-                         match = re.search(r'\{.*\}', text_response, re.DOTALL)
-                         if match:
-                             transcript_data = json.loads(match.group(0))
-                         else:
-                             # Fallback to plain text if no JSON found
-                             plain_text = text_response
-                             transcript_data = {"segments": []}
 
-                    # Construct plain text from segments if available
-                    if "segments" in transcript_data and isinstance(transcript_data["segments"], list):
-                        segments = transcript_data["segments"]
-                        # Robust extraction
-                        plain_text = "\n".join([str(seg.get("text", "")) for seg in segments if isinstance(seg, dict)])
-                        
-                        # Calculate duration from last segment
-                        if segments:
-                            last_seg = segments[-1]
-                            end_time_str = last_seg.get("end", "00:00")
-                            try:
-                                parts = end_time_str.split(":")
-                                if len(parts) == 2:
-                                    duration_seconds = int(parts[0]) * 60 + int(parts[1])
-                                elif len(parts) == 3: # HH:MM:SS
-                                    duration_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
-                            except Exception:
-                                print(f"Failed to parse duration from {end_time_str}")
+            if response.status_code != 200:
+                error_detail = response.text
+                try:
+                    error_json = response.json()
+                    error_detail = error_json.get("error", {}).get("message", response.text)
+                except Exception:
+                    pass
+                raise Exception(f"OpenRouter API error ({response.status_code}): {error_detail}")
 
-            except Exception as e:
-                print(f"Failed to parse JSON response: {e}")
-                plain_text = "Error parsing transcription response."
-                transcript_data = {"segments": [], "error": str(e)}
+            result = response.json()
+            plain_text = result.get("text", "").strip()
 
+            if not plain_text:
+                raise Exception("OpenRouter returned empty transcription.")
+
+            print(f"Transcription received: {len(plain_text)} characters")
+
+            # OpenRouter Whisper does not return timestamps/segments,
+            # so we return empty segments. The frontend handles this gracefully.
             return {
                 "text": plain_text,
                 "metadata": {
-                    "duration": duration_seconds, 
+                    "duration": 0,
                     "model": self.model_id,
-                    "segments": transcript_data.get("segments", [])
+                    "segments": []
                 }
             }
+
         except Exception as e:
             print(f"Transcription error: {e}")
             raise e
+
 
 transcription_service = TranscriptionService()

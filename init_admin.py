@@ -14,11 +14,26 @@ def init_admin():
     Base.metadata.create_all(bind=engine)
 
     db = SessionLocal()
-    admin_users = [
-        {"username": "ADMIN_AZE", "password": os.getenv("ADMIN_PASSWORD"), "email": "admin@tunai.com"},
-        {"username": "Chembakadas", "password": "Kangaroo@21", "email": "chembakadas@tunai.com"},
-        {"username": "Binu", "password": "dindan", "email": "binu@tunai.com"}
-    ]
+    
+    # All admin credentials come from environment variables.
+    # Format: ADMIN_<N>_USERNAME, ADMIN_<N>_PASSWORD
+    # This keeps passwords out of source code entirely.
+    admin_users = []
+    i = 1
+    while True:
+        username = os.getenv(f"ADMIN_{i}_USERNAME")
+        if not username:
+            break
+        admin_users.append({
+            "username": username,
+            "password": os.getenv(f"ADMIN_{i}_PASSWORD"),
+        })
+        i += 1
+
+    if not admin_users:
+        print("No admin users configured in environment. Set ADMIN_1_USERNAME, ADMIN_1_PASSWORD, etc.")
+        db.close()
+        return
 
     for admin_data in admin_users:
         if not admin_data["password"]:
@@ -31,7 +46,6 @@ def init_admin():
             print(f"Creating admin user {admin_data['username']}...")
             user = User(
                 username=admin_data["username"],
-                email=admin_data["email"],
                 hashed_password=get_password_hash(admin_data["password"]),
                 is_admin=True
             )

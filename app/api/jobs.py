@@ -5,7 +5,6 @@ import uuid
 from io import BytesIO
 from docx import Document
 from fastapi.responses import StreamingResponse
-import os
 from pydantic import EmailStr, BaseModel
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 
@@ -15,17 +14,18 @@ from app.schemas import JobCreate, JobResponse, UploadResponse, TranscriptRespon
 from app.services.storage import storage_service
 from app.workers.tasks import process_audio, process_audio_file
 from app.api.auth import get_current_user
+from app.core.config import settings
 
 
-# Email Configuration
+# Email Configuration — reads from centralized settings (which loads from .env)
 conf = ConnectionConfig(
-    MAIL_USERNAME=os.getenv("MAIL_USERNAME", ""),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD", ""),
-    MAIL_FROM=os.getenv("MAIL_FROM", "noreply@example.com"),
-    MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
-    MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp.gmail.com"),
-    MAIL_STARTTLS=os.getenv("MAIL_STARTTLS", "True").lower() == "true",
-    MAIL_SSL_TLS=os.getenv("MAIL_SSL", "False").lower() == "true",
+    MAIL_USERNAME=settings.MAIL_USERNAME,
+    MAIL_PASSWORD=settings.MAIL_PASSWORD,
+    MAIL_FROM=settings.MAIL_FROM,
+    MAIL_PORT=settings.MAIL_PORT,
+    MAIL_SERVER=settings.MAIL_SERVER,
+    MAIL_STARTTLS=settings.MAIL_STARTTLS,
+    MAIL_SSL_TLS=settings.MAIL_SSL,
     USE_CREDENTIALS=True,
     VALIDATE_CERTS=True
 )
