@@ -2,15 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
 import uuid
+import os
 from io import BytesIO
 from docx import Document
 from fastapi.responses import StreamingResponse
 from pydantic import EmailStr, BaseModel
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
+from datetime import datetime, timezone
 
 from app.db.base import get_db
-from app.db.models import Job, JobStatus, Transcript, User
-from app.schemas import JobCreate, JobResponse, UploadResponse, TranscriptResponse
+from app.db.models import Job, JobStatus, Transcript, User, SupportingDocument
+from app.schemas import (
+    JobCreate, JobResponse, UploadResponse, TranscriptResponse,
+    LedgerEntryUpdate, SupportingDocumentResponse
+)
 from app.services.storage import storage_service
 from app.workers.tasks import process_audio, process_audio_file
 from app.api.auth import get_current_user
@@ -82,12 +87,13 @@ def initiate_upload(
         saved_filename = storage_service.save_file(file.file, file.filename)
         print(f"File saved successfully at: {saved_filename}")
         
-        # Create Job Record
+        # Create Job Record with login_date auto-set
         new_job = Job(
             user_id=user.id,
             original_filename=file.filename,
             storage_path=saved_filename,
-            status=JobStatus.UPLOADED.value
+            status=JobStatus.UPLOADED.value,
+            login_date=datetime.now(timezone.utc)
         )
         db.add(new_job)
         db.commit()
@@ -136,7 +142,8 @@ def list_jobs(
     user: User = Depends(get_current_user),
     skip: int = 0, 
     limit: int = 100,
-    status: Optional[str] = Query(None, description="Filter by status")
+    status: Optional[str] = Query(None, description="Filter by status"),
+    service_type: Optional[str] = Query(None, description="Filter by service type")
 ):
     query = db.query(Job).filter(Job.user_id == user.id)
     
@@ -147,9 +154,33 @@ def list_jobs(
     else:
         # Default: everything NOT trashed
         query = query.filter(Job.status != JobStatus.TRASHED.value)
+    
+    if service_type:
+        query = query.filter(Job.service_type == service_type)
 
     jobs = query.order_by(Job.created_at.desc()).offset(skip).limit(limit).all()
     return jobs
+
+@router.patch("/{job_id}", response_model=JobResponse)
+def update_ledger_entry(
+    job_id: str,
+    update_data: LedgerEntryUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Update ledger entry fields for a job."""
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Only update fields that were explicitly set (not None)
+    update_dict = update_data.model_dump(exclude_unset=True)
+    for field, value in update_dict.items():
+        setattr(job, field, value)
+    
+    db.commit()
+    db.refresh(job)
+    return job
 
 @router.delete("/trash/all", status_code=204)
 def empty_trash(
@@ -167,6 +198,9 @@ def empty_trash(
     for job in jobs_to_delete:
         # Delete file from disk
         storage_service.delete_file(job.storage_path)
+        # Delete supporting documents from disk
+        for doc in job.supporting_documents:
+            storage_service.delete_file(doc.storage_path)
         # Delete from DB
         db.delete(job)
         
@@ -225,8 +259,11 @@ def delete_job_permanent(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    # Delete file from disk
+    # Delete audio file from disk
     storage_service.delete_file(job.storage_path)
+    # Delete supporting documents from disk
+    for doc in job.supporting_documents:
+        storage_service.delete_file(doc.storage_path)
     
     # Delete from DB
     db.delete(job)
@@ -315,3 +352,133 @@ def download_job(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+# =====================================================
+# Supporting Documents Endpoints
+# =====================================================
+
+@router.post("/{job_id}/documents", response_model=List[SupportingDocumentResponse])
+def upload_supporting_documents(
+    job_id: str,
+    files: List[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Upload one or more supporting documents for a ledger entry."""
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    uploaded_docs = []
+    for file in files:
+        try:
+            # Save to storage
+            saved_filename = storage_service.save_file(file.file, file.filename)
+            
+            # Get file size
+            file.file.seek(0, 2)  # Seek to end
+            file_size = file.file.tell()
+            file.file.seek(0)
+            
+            doc = SupportingDocument(
+                job_id=job_id,
+                original_filename=file.filename,
+                storage_path=saved_filename,
+                file_size_bytes=file_size
+            )
+            db.add(doc)
+            uploaded_docs.append(doc)
+        except Exception as e:
+            print(f"Failed to upload supporting document {file.filename}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to upload {file.filename}: {str(e)}")
+    
+    db.commit()
+    for doc in uploaded_docs:
+        db.refresh(doc)
+    
+    return uploaded_docs
+
+@router.get("/{job_id}/documents", response_model=List[SupportingDocumentResponse])
+def list_supporting_documents(
+    job_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """List all supporting documents for a ledger entry."""
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    return job.supporting_documents
+
+@router.get("/{job_id}/documents/{doc_id}/download")
+def download_supporting_document(
+    job_id: str,
+    doc_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Download a specific supporting document."""
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    doc = db.query(SupportingDocument).filter(
+        SupportingDocument.id == doc_id,
+        SupportingDocument.job_id == job_id
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    file_path = storage_service.download_to_temp(doc.storage_path)
+    
+    # Determine MIME type from extension
+    ext = doc.original_filename.rsplit(".", 1)[-1].lower() if "." in doc.original_filename else "bin"
+    mime_map = {
+        "pdf": "application/pdf",
+        "doc": "application/msword",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "jpg": "image/jpeg", "jpeg": "image/jpeg",
+        "png": "image/png",
+        "txt": "text/plain",
+    }
+    media_type = mime_map.get(ext, "application/octet-stream")
+    
+    def iterfile():
+        with open(file_path, "rb") as f:
+            yield from f
+    
+    return StreamingResponse(
+        iterfile(),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={doc.original_filename}"}
+    )
+
+@router.delete("/{job_id}/documents/{doc_id}", status_code=204)
+def delete_supporting_document(
+    job_id: str,
+    doc_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Delete a specific supporting document."""
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    doc = db.query(SupportingDocument).filter(
+        SupportingDocument.id == doc_id,
+        SupportingDocument.job_id == job_id
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Delete file from storage
+    storage_service.delete_file(doc.storage_path)
+    
+    # Delete from DB
+    db.delete(doc)
+    db.commit()
+    return
+

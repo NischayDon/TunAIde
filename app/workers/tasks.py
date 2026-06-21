@@ -6,6 +6,7 @@ from app.db.base import SessionLocal
 from app.db.models import Job, JobStatus, Transcript
 from app.core.config import settings
 from app.services.transcription import transcription_service
+from app.services.timestamp_agent import timestamp_agent
 from app.services.storage import storage_service
 
 import wave
@@ -70,7 +71,19 @@ def process_audio_file(job_id: str):
         # Pass input_path directly
         transcription_result = transcription_service.transcribe_audio(input_path)
         
-        # 5. Save Transcript
+        # 5. Generate Timestamps via Gemini Agent
+        print("Generating timestamps with Gemini agent...")
+        segments = timestamp_agent.generate_timestamps(input_path, transcription_result["text"])
+        if segments:
+            transcription_result["metadata"]["segments"] = segments
+            # Compute duration from the last segment's end time
+            last_end = max((s.get("end", 0) for s in segments), default=0)
+            if last_end > 0:
+                transcription_result["metadata"]["duration"] = last_end
+        else:
+            print("Warning: Gemini failed to generate timestamps. Falling back to text-only.")
+        
+        # 6. Save Transcript
         new_transcript = Transcript(
             job_id=job_id,
             text_content=transcription_result["text"],
@@ -78,9 +91,38 @@ def process_audio_file(job_id: str):
         )
         db.add(new_transcript)
         
-        # 6. Complete Job
+        # 7. Auto-extract ledger fields from transcript text
+        plain_text = transcription_result["text"].strip()
+        words = plain_text.split()
+        
+        valid_service_types = {
+            "recours": "Recours",
+            "ofpra": "OFPRA",
+            "réexamin": "Réexamin",
+            "reexamin": "Réexamin",
+            "tribunal": "Tribunal",
+        }
+        
+        if words:
+            first_word_lower = words[0].strip(".,;:!?").lower()
+            matched_service = valid_service_types.get(first_word_lower)
+            if matched_service:
+                job.service_type = matched_service
+                print(f"Auto-extracted service_type: {matched_service}")
+            else:
+                print(f"Warning: First word '{words[0]}' does not match a known service type.")
+        
+        if len(words) >= 2:
+            job.client_name = words[1].strip(".,;:!?")
+            print(f"Auto-extracted client_name: {job.client_name}")
+        
+        if len(words) >= 3:
+            job.client_surname = words[2].strip(".,;:!?")
+            print(f"Auto-extracted client_surname: {job.client_surname}")
+        
+        # 8. Complete Job
         job.status = JobStatus.COMPLETED.value
-        # Use duration from metadata (calculated in service)
+        # Use duration from metadata (calculated in service or from segments)
         job.duration_seconds = transcription_result["metadata"].get("duration", 0) 
             
         db.commit()

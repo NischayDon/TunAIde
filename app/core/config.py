@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # AI (OpenRouter)
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_MODEL: str = "openai/whisper-large-v3"
+    OPENROUTER_GEMINI_MODEL: str = "google/gemini-2.0-flash-001"
 
     # Auth
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 300
