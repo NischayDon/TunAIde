@@ -10,7 +10,7 @@ const App = {
         showTimestamps: false
     },
 
-    API_URL: "tunaide-production-0bcb.up.railway.app",
+    API_URL: "https://tunaide-production-799d.up.railway.app",
 
     init: async () => {
         if (!App.state.token) {
