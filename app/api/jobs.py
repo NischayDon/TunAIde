@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
 import uuid
@@ -17,7 +17,7 @@ from app.schemas import (
     LedgerEntryUpdate, SupportingDocumentResponse
 )
 from app.services.storage import storage_service
-from app.workers.tasks import process_audio, process_audio_file
+from app.workers.tasks import process_audio
 from app.api.auth import get_current_user
 from app.core.config import settings
 
@@ -114,7 +114,6 @@ def initiate_upload(
 @router.post("/{job_id}/process", response_model=JobResponse)
 def start_processing(
     job_id: str, 
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
@@ -131,8 +130,8 @@ def start_processing(
     db.commit()
     db.refresh(job)
 
-    # Trigger Local Task (BackgroundTasks)
-    background_tasks.add_task(process_audio_file, job_id)
+    # Dispatch to Celery worker via Redis
+    process_audio.delay(job_id)
 
     return job
 
