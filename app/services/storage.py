@@ -1,5 +1,4 @@
 import os
-import shutil
 import uuid
 from typing import BinaryIO
 from google.cloud import storage
@@ -11,11 +10,11 @@ from app.core.config import settings
 
 class StorageService:
     def __init__(self):
-        self.mode = "LOCAL"
+        self.mode = None
         self.bucket = None
         self.s3_client = None
         
-        # S3 / Railway Bucket Check
+        # S3 / Railway Object Storage Check (priority)
         if settings.S3_ACCESS_KEY_ID and settings.S3_SECRET_ACCESS_KEY:
             try:
                 self._init_s3()
@@ -26,7 +25,14 @@ class StorageService:
                 self._check_gcs()
         else:
              self._check_gcs()
-             
+
+        if self.mode is None:
+            raise RuntimeError(
+                "StorageService: No remote storage configured! "
+                "Set S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY (Railway Object Storage) "
+                "or GCP_CREDENTIALS_JSON (GCS). Local storage is disabled."
+            )
+              
     def _check_gcs(self):
         # GCS Check
         self.bucket_name = settings.GCP_BUCKET_NAME
@@ -36,16 +42,7 @@ class StorageService:
                 self.mode = "GCS"
                 print(f"StorageService initialized in GCS mode. Bucket: {self.bucket_name}")
             except Exception as e:
-                print(f"Failed to initialize GCS, falling back to LOCAL: {e}")
-                self._init_local()
-        else:
-            self._init_local()
-
-    def _init_local(self):
-        self.mode = "LOCAL"
-        self.upload_dir = os.path.join(os.getcwd(), "app", "static", "uploads")
-        os.makedirs(self.upload_dir, exist_ok=True)
-        print(f"StorageService initialized in LOCAL mode. Path: {self.upload_dir}")
+                print(f"Failed to initialize GCS: {e}")
         
     def _init_s3(self):
         self.s3_bucket_name = settings.S3_BUCKET_NAME
@@ -90,24 +87,12 @@ class StorageService:
             file_obj.seek(0)
             blob.upload_from_file(file_obj)
             return unique_name
-        else:
-            file_path = os.path.join(self.upload_dir, unique_name)
-            file_obj.seek(0)
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(file_obj, buffer)
-            return unique_name
 
     def get_full_path(self, relative_path: str) -> str:
-        if self.mode in ["GCS", "S3"]:
-            # Remote paths are just their keys/names
-            return relative_path 
-        else:
-            return os.path.join(self.upload_dir, relative_path)
+        # Remote paths are just their keys/names
+        return relative_path
     
     def download_to_temp(self, relative_path: str) -> str:
-        if self.mode == "LOCAL":
-            return self.get_full_path(relative_path)
-            
         import tempfile
         ext = relative_path.split('.')[-1] if '.' in relative_path else "bin"
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}")
@@ -129,10 +114,6 @@ class StorageService:
             elif self.mode == "GCS":
                 blob = self.bucket.blob(relative_path)
                 blob.delete()
-            else:
-                path = self.get_full_path(relative_path)
-                if os.path.exists(path):
-                    os.remove(path)
         except Exception as e:
             print(f"Error deleting file {relative_path} in {self.mode}: {e}")
 

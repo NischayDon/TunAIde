@@ -22,7 +22,7 @@ services:
 
   worker:
     build: .
-    command: celery -A app.workers.celery_app worker --loglevel=info
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
     volumes:
       - .:/app
       - ./gcp_key.json:/app/gcp_key.json

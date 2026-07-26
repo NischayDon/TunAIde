@@ -136,20 +136,19 @@ def process_audio_file(job_id: str):
         db.commit()
         
     finally:
-        # Cleanup temp files for remote storage modes (GCS and S3)
-        if storage_service.mode in ("GCS", "S3"):
-            # Clean up original downloaded temp file
-            if original_input_path and os.path.exists(original_input_path):
-                try:
-                    os.remove(original_input_path)
-                    print(f"Cleaned up temp file: {original_input_path}")
-                except Exception as cleanup_err:
-                    print(f"Warning: Failed to cleanup temp file {original_input_path}: {cleanup_err}")
-            # Clean up normalized mp3 temp file
-            if normalized_path and normalized_path != original_input_path and os.path.exists(normalized_path):
-                try:
-                    os.remove(normalized_path)
-                    print(f"Cleaned up normalized file: {normalized_path}")
-                except Exception as cleanup_err:
-                    print(f"Warning: Failed to cleanup normalized file {normalized_path}: {cleanup_err}")
+        # Cleanup temp files (storage is always remote — S3 or GCS)
+        # Clean up original downloaded temp file
+        if original_input_path and os.path.exists(original_input_path):
+            try:
+                os.remove(original_input_path)
+                print(f"Cleaned up temp file: {original_input_path}")
+            except Exception as cleanup_err:
+                print(f"Warning: Failed to cleanup temp file {original_input_path}: {cleanup_err}")
+        # Clean up normalized mp3 temp file
+        if normalized_path and normalized_path != original_input_path and os.path.exists(normalized_path):
+            try:
+                os.remove(normalized_path)
+                print(f"Cleaned up normalized file: {normalized_path}")
+            except Exception as cleanup_err:
+                print(f"Warning: Failed to cleanup normalized file {normalized_path}: {cleanup_err}")
         db.close()
