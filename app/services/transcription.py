@@ -54,21 +54,51 @@ class TranscriptionService:
             }
             audio_format = format_map.get(ext, "mp3")
 
-            # 2. Call OpenRouter audio transcription endpoint
+            # 2. Call OpenRouter API
             print(f"Sending to OpenRouter ({self.model_id})...")
-            payload = {
-                "model": self.model_id,
-                "input_audio": {
-                    "data": audio_data,
-                    "format": audio_format,
-                },
-            }
-            # Only force language if explicitly configured; otherwise let Whisper auto-detect
-            if settings.WHISPER_LANGUAGE:
-                payload["language"] = settings.WHISPER_LANGUAGE
+            
+            is_asr_model = "whisper" in self.model_id.lower() or "transcribe" in self.model_id.lower()
+            
+            if is_asr_model:
+                # Use dedicated transcription endpoint
+                endpoint = f"{self.base_url}/audio/transcriptions"
+                payload = {
+                    "model": self.model_id,
+                    "input_audio": {
+                        "data": audio_data,
+                        "format": audio_format,
+                    },
+                }
+                if settings.WHISPER_LANGUAGE:
+                    payload["language"] = settings.WHISPER_LANGUAGE
+            else:
+                # Use chat completions endpoint for reasoning models (e.g. GPT-5.4 Pro)
+                endpoint = f"{self.base_url}/chat/completions"
+                prompt = "Please transcribe the following audio accurately in its original language. Only return the transcribed text without any conversational filler, markdown formatting, or explanations."
+                if settings.WHISPER_LANGUAGE:
+                    prompt += f" The expected language is {settings.WHISPER_LANGUAGE}."
+                    
+                payload = {
+                    "model": self.model_id,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {
+                                    "type": "input_audio",
+                                    "input_audio": {
+                                        "data": audio_data,
+                                        "format": audio_format
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
 
             response = requests.post(
-                f"{self.base_url}/audio/transcriptions",
+                endpoint,
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
@@ -87,7 +117,12 @@ class TranscriptionService:
                 raise Exception(f"OpenRouter API error ({response.status_code}): {error_detail}")
 
             result = response.json()
-            plain_text = result.get("text", "").strip()
+            
+            # Extract text depending on the endpoint used
+            if is_asr_model:
+                plain_text = result.get("text", "").strip()
+            else:
+                plain_text = result["choices"][0]["message"]["content"].strip()
 
             if not plain_text:
                 raise Exception("OpenRouter returned empty transcription.")
