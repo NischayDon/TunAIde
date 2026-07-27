@@ -64,6 +64,7 @@ class TranscriptionService:
                 },
                 json={
                     "model": self.model_id,
+                    "language": settings.WHISPER_LANGUAGE,
                     "input_audio": {
                         "data": audio_data,
                         "format": audio_format,

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # AI (OpenRouter)
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_MODEL: str = "openai/whisper-large-v3"
+    WHISPER_LANGUAGE: str = "fr"  # ISO-639-1 language code for transcription
     OPENROUTER_GEMINI_MODEL: str = "google/gemini-3.6-flash"
 
     # Auth
