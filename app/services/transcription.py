@@ -56,20 +56,24 @@ class TranscriptionService:
 
             # 2. Call OpenRouter audio transcription endpoint
             print(f"Sending to OpenRouter ({self.model_id})...")
+            payload = {
+                "model": self.model_id,
+                "input_audio": {
+                    "data": audio_data,
+                    "format": audio_format,
+                },
+            }
+            # Only force language if explicitly configured; otherwise let Whisper auto-detect
+            if settings.WHISPER_LANGUAGE:
+                payload["language"] = settings.WHISPER_LANGUAGE
+
             response = requests.post(
                 f"{self.base_url}/audio/transcriptions",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "model": self.model_id,
-                    "language": settings.WHISPER_LANGUAGE,
-                    "input_audio": {
-                        "data": audio_data,
-                        "format": audio_format,
-                    },
-                },
+                json=payload,
                 timeout=300,  # 5 minute timeout for large files
             )
 
