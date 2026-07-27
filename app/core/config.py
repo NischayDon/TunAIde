@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # AI (OpenRouter)
     OPENROUTER_API_KEY: str = ""
-    OPENROUTER_MODEL: str = "openai/gpt-5.4-pro"
+    OPENROUTER_MODEL: str = "x-ai/grok-stt-1.0"
     WHISPER_LANGUAGE: str = ""  # Empty = auto-detect. Set ISO-639-1 code (e.g. "fr") to force a language
     OPENROUTER_GEMINI_MODEL: str = "google/gemini-3.6-flash"
 

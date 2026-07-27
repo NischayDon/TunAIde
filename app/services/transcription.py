@@ -57,7 +57,8 @@ class TranscriptionService:
             # 2. Call OpenRouter API
             print(f"Sending to OpenRouter ({self.model_id})...")
             
-            is_asr_model = "whisper" in self.model_id.lower() or "transcribe" in self.model_id.lower()
+            model_lower = self.model_id.lower()
+            is_asr_model = "whisper" in model_lower or "transcribe" in model_lower or "stt" in model_lower
             
             if is_asr_model:
                 # Use dedicated transcription endpoint
