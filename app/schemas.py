@@ -22,6 +22,7 @@ class SupportingDocumentResponse(BaseModel):
 class JobResponse(JobBase):
     id: str
     status: JobStatus
+    storage_path: Optional[str] = None
     created_at: datetime
     error_message: Optional[str] = None
     

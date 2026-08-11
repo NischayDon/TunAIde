@@ -7,8 +7,15 @@ const App = {
         token: localStorage.getItem('access_token'),
         user: JSON.parse(localStorage.getItem('user_info') || 'null'),
         adminStats: [],
-        showTimestamps: false
+        showTimestamps: false,
+        isEditing: false,
+        audioPlaybackRate: 1.0
     },
+
+    // Audio player state (not persisted)
+    audioPlayerHovered: false,
+    _seeking: false,
+    _audioKeyHandler: null,
 
     API_URL: "",
 
@@ -64,6 +71,7 @@ const App = {
         } else if (App.state.view === 'transcript') {
             main.innerHTML = Components.TranscriptView();
             App.renderTranscript();
+            App.initAudioPlayer();
         } else if (App.state.view === 'admin') {
             main.innerHTML = Components.AdminDashboard(App.state.adminStats);
             App.loadAdminStats(); // Fetch stats
@@ -74,6 +82,13 @@ const App = {
     },
 
     navigateTo: (viewName) => {
+        // Cleanup audio player if leaving transcript view
+        if (App.state.view === 'transcript' && viewName !== 'transcript') {
+            App.destroyAudioPlayer();
+        }
+        // Reset edit mode when navigating away
+        App.state.isEditing = false;
+
         App.state.view = viewName;
         App.state.activeActionMenu = null;
 
@@ -528,6 +543,262 @@ const App = {
                 btn.disabled = false;
                 btn.innerText = originalText;
             }
+        }
+    },
+
+    // =====================================================
+    // Audio Player
+    // =====================================================
+
+    initAudioPlayer: async () => {
+        const audio = document.getElementById('audioElement');
+        const seekBar = document.getElementById('audioSeekBar');
+        const currentTimeEl = document.getElementById('audioCurrentTime');
+        const durationEl = document.getElementById('audioDuration');
+        const slab = document.getElementById('audioPlayerSlab');
+
+        if (!audio || !App.state.currentJob) return;
+
+        // Fetch audio with auth and create blob URL
+        const jobId = App.state.currentJob.id;
+        try {
+            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/audio`);
+            if (res.ok) {
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                audio.src = blobUrl;
+                // Store for cleanup
+                App._audioBlobUrl = blobUrl;
+            } else {
+                console.error('Failed to load audio:', res.status);
+            }
+        } catch (e) {
+            console.error('Failed to fetch audio:', e);
+        }
+
+        // Restore playback rate
+        audio.playbackRate = App.state.audioPlaybackRate;
+        App._updateSpeedBadge();
+
+        // Time update handler
+        audio.addEventListener('timeupdate', () => {
+            if (!App._seeking) {
+                const pct = (audio.currentTime / audio.duration) * 100 || 0;
+                if (seekBar) seekBar.value = pct;
+                if (currentTimeEl) currentTimeEl.textContent = App._formatTime(audio.currentTime);
+            }
+        });
+
+        // Metadata loaded
+        audio.addEventListener('loadedmetadata', () => {
+            if (durationEl) durationEl.textContent = App._formatTime(audio.duration);
+            if (seekBar) seekBar.max = 100;
+        });
+
+        // Audio ended
+        audio.addEventListener('ended', () => {
+            const playIcon = document.getElementById('playIcon');
+            const pauseIcon = document.getElementById('pauseIcon');
+            if (playIcon) playIcon.classList.remove('hidden');
+            if (pauseIcon) pauseIcon.classList.add('hidden');
+        });
+
+        // Keyboard handler — only when hovered
+        App._audioKeyHandler = (e) => {
+            if (!App.audioPlayerHovered) return;
+
+            // Don't intercept if user is editing transcript
+            const activeEl = document.activeElement;
+            if (activeEl && activeEl.getAttribute('contenteditable') === 'true') return;
+
+            switch (e.key) {
+                case ' ':
+                    e.preventDefault();
+                    App.togglePlayPause();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    App.seekForward(10);
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    App.seekBackward(10);
+                    break;
+                case '+':
+                case '=':
+                    e.preventDefault();
+                    App.speedUp();
+                    break;
+                case '-':
+                    e.preventDefault();
+                    App.speedDown();
+                    break;
+            }
+        };
+
+        if (slab) {
+            slab.addEventListener('keydown', App._audioKeyHandler);
+        }
+    },
+
+    destroyAudioPlayer: () => {
+        const audio = document.getElementById('audioElement');
+        if (audio) {
+            audio.pause();
+            audio.src = '';
+        }
+
+        // Revoke blob URL to free memory
+        if (App._audioBlobUrl) {
+            URL.revokeObjectURL(App._audioBlobUrl);
+            App._audioBlobUrl = null;
+        }
+
+        const slab = document.getElementById('audioPlayerSlab');
+        if (slab && App._audioKeyHandler) {
+            slab.removeEventListener('keydown', App._audioKeyHandler);
+        }
+        App._audioKeyHandler = null;
+        App.audioPlayerHovered = false;
+    },
+
+    togglePlayPause: () => {
+        const audio = document.getElementById('audioElement');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        if (!audio) return;
+
+        if (audio.paused) {
+            audio.play().catch(e => console.error('Audio play failed:', e));
+            if (playIcon) playIcon.classList.add('hidden');
+            if (pauseIcon) pauseIcon.classList.remove('hidden');
+        } else {
+            audio.pause();
+            if (playIcon) playIcon.classList.remove('hidden');
+            if (pauseIcon) pauseIcon.classList.add('hidden');
+        }
+    },
+
+    seekForward: (secs) => {
+        const audio = document.getElementById('audioElement');
+        if (!audio) return;
+        audio.currentTime = Math.min(audio.currentTime + secs, audio.duration || 0);
+    },
+
+    seekBackward: (secs) => {
+        const audio = document.getElementById('audioElement');
+        if (!audio) return;
+        audio.currentTime = Math.max(audio.currentTime - secs, 0);
+    },
+
+    seekTo: (pct) => {
+        const audio = document.getElementById('audioElement');
+        if (!audio || !audio.duration) return;
+        audio.currentTime = (pct / 100) * audio.duration;
+    },
+
+    speedUp: () => {
+        const audio = document.getElementById('audioElement');
+        if (!audio) return;
+        App.state.audioPlaybackRate = Math.min(App.state.audioPlaybackRate + 0.25, 3.0);
+        audio.playbackRate = App.state.audioPlaybackRate;
+        App._updateSpeedBadge();
+    },
+
+    speedDown: () => {
+        const audio = document.getElementById('audioElement');
+        if (!audio) return;
+        App.state.audioPlaybackRate = Math.max(App.state.audioPlaybackRate - 0.25, 0.5);
+        audio.playbackRate = App.state.audioPlaybackRate;
+        App._updateSpeedBadge();
+    },
+
+    _updateSpeedBadge: () => {
+        const badge = document.getElementById('audioSpeedBadge');
+        if (badge) {
+            badge.textContent = `${App.state.audioPlaybackRate.toFixed(1)}×`;
+            // Highlight if not 1.0
+            if (App.state.audioPlaybackRate !== 1.0) {
+                badge.classList.add('audio-speed-badge--active');
+            } else {
+                badge.classList.remove('audio-speed-badge--active');
+            }
+        }
+    },
+
+    _formatTime: (secs) => {
+        if (!secs || isNaN(secs)) return '0:00';
+        const m = Math.floor(secs / 60);
+        const s = Math.floor(secs % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    },
+
+    // =====================================================
+    // Text Editing
+    // =====================================================
+
+    toggleEditMode: () => {
+        const contentEl = document.getElementById('transcriptContent');
+        const btnText = document.getElementById('editBtnText');
+        const btnEl = document.getElementById('editToggleBtn');
+        const btnIcon = document.getElementById('editBtnIcon');
+
+        if (!contentEl) return;
+
+        if (App.state.isEditing) {
+            // Save and exit edit mode
+            App.saveTranscriptEdit();
+            contentEl.setAttribute('contenteditable', 'false');
+            contentEl.classList.remove('editing-active');
+            if (btnText) btnText.textContent = 'Edit';
+            if (btnEl) {
+                btnEl.classList.remove('bg-green-50', 'text-green-700', 'border-green-300');
+                btnEl.classList.add('text-slate-600', 'border-slate-300');
+            }
+            if (btnIcon) btnIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>';
+            App.state.isEditing = false;
+        } else {
+            // Enter edit mode
+            contentEl.setAttribute('contenteditable', 'true');
+            contentEl.classList.add('editing-active');
+            contentEl.focus();
+            if (btnText) btnText.textContent = 'Save';
+            if (btnEl) {
+                btnEl.classList.remove('text-slate-600', 'border-slate-300');
+                btnEl.classList.add('bg-green-50', 'text-green-700', 'border-green-300');
+            }
+            if (btnIcon) btnIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+            App.state.isEditing = true;
+        }
+    },
+
+    saveTranscriptEdit: async () => {
+        const contentEl = document.getElementById('transcriptContent');
+        if (!contentEl || !App.state.currentJob) return;
+
+        const editedText = contentEl.innerText.trim();
+        const jobId = App.state.currentJob.id;
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/transcript`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text_content: editedText })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                // Update local state
+                App.state.currentJob.text_content = data.text_content;
+                App.state.currentJob.json_metadata = data.json_metadata;
+                console.log('Transcript saved successfully');
+            } else {
+                const err = await res.json();
+                alert('Failed to save: ' + (err.detail || 'Unknown error'));
+            }
+        } catch (e) {
+            console.error('Save transcript error:', e);
+            alert('Failed to save transcript');
         }
     }
 };

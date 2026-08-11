@@ -306,9 +306,14 @@ const Components = {
             </header>
 
             <!-- Editor -->
-            <div class="flex-1 overflow-y-auto p-8" id="transcriptContainer">
-                <div class="max-w-3xl mx-auto bg-white min-h-[800px] p-12 shadow-sm rounded-sm border border-slate-200">
-                    <div id="transcriptContent" class="prose prose-slate max-w-none prose-lg">
+            <div class="flex-1 overflow-y-auto p-8 pb-48" id="transcriptContainer">
+                <div class="max-w-3xl mx-auto bg-white min-h-[800px] p-12 shadow-sm rounded-sm border border-slate-200 relative">
+                    <!-- Edit Toggle Button -->
+                    <button id="editToggleBtn" onclick="App.toggleEditMode()" class="edit-toggle-btn absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border transition-all duration-200 text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-900" title="Edit transcript">
+                        <svg id="editBtnIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        <span id="editBtnText">Edit</span>
+                    </button>
+                    <div id="transcriptContent" class="prose prose-slate max-w-none prose-lg transcript-editable-area">
                         <!-- Content or Skeleton -->
                         <div class="animate-pulse space-y-4">
                             <div class="h-4 bg-slate-100 rounded w-3/4"></div>
@@ -316,6 +321,63 @@ const Components = {
                             <div class="h-4 bg-slate-100 rounded w-5/6"></div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Audio Player Slab -->
+            <div id="audioPlayerSlab" class="audio-player-slab" tabindex="-1"
+                 onmouseenter="App.audioPlayerHovered = true; this.focus();"
+                 onmouseleave="App.audioPlayerHovered = false; this.blur();">
+                
+                <audio id="audioElement" preload="auto"></audio>
+
+                <!-- Top Row: Progress Bar -->
+                <div class="audio-progress-row">
+                    <span id="audioCurrentTime" class="audio-time-label">0:00</span>
+                    <input type="range" id="audioSeekBar" class="audio-seek-bar" min="0" max="100" value="0" step="0.1"
+                           oninput="App.seekTo(this.value)"
+                           onmousedown="App._seeking = true"
+                           onmouseup="App._seeking = false">
+                    <span id="audioDuration" class="audio-time-label">0:00</span>
+                </div>
+
+                <!-- Bottom Row: Controls -->
+                <div class="audio-controls-row">
+                    <!-- Speed Down -->
+                    <button onclick="App.speedDown()" class="audio-ctrl-btn" title="Speed Down (-)">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9"></path></svg>
+                    </button>
+
+                    <!-- Speed Badge -->
+                    <span id="audioSpeedBadge" class="audio-speed-badge" title="Playback speed">1.0×</span>
+
+                    <!-- Speed Up -->
+                    <button onclick="App.speedUp()" class="audio-ctrl-btn" title="Speed Up (+)">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path></svg>
+                    </button>
+
+                    <div class="audio-ctrl-divider"></div>
+
+                    <!-- Rewind 10s -->
+                    <button onclick="App.seekBackward(10)" class="audio-ctrl-btn" title="Rewind 10s (←)">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"></path></svg>
+                    </button>
+
+                    <!-- Play/Pause -->
+                    <button id="audioPlayPauseBtn" onclick="App.togglePlayPause()" class="audio-play-btn" title="Play/Pause (Space)">
+                        <svg id="playIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+                        <svg id="pauseIcon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path></svg>
+                    </button>
+
+                    <!-- Forward 10s -->
+                    <button onclick="App.seekForward(10)" class="audio-ctrl-btn" title="Forward 10s (→)">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z"></path></svg>
+                    </button>
+
+                    <div class="audio-ctrl-divider"></div>
+
+                    <!-- Keyboard hint -->
+                    <span class="audio-hint">Hover for keyboard shortcuts</span>
                 </div>
             </div>
 
