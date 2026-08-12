@@ -251,13 +251,34 @@ const Components = {
                      </div>
                 </div>
 
+                <!-- Completion Tracker -->
+                <div id="completionTracker" class="mb-6 bg-white rounded-lg shadow-sm border border-slate-200 p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-green-50 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-slate-900">Transcription Progress</p>
+                                <p class="text-xs text-slate-500" id="trackerText">0 of 0 files completed</p>
+                            </div>
+                        </div>
+                        <span id="trackerPercent" class="text-lg font-bold text-green-600 tabular-nums">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div id="trackerBar" class="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                    </div>
+                </div>
+
                 <!-- File List -->
                 <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-visible min-h-[300px]">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-medium">
                             <tr>
+                                <th class="px-4 py-3 w-12 text-center">#</th>
                                 <th class="px-6 py-3">Name</th>
                                 <th class="px-6 py-3">Status</th>
+                                <th class="px-6 py-3">Duration</th>
                                 <th class="px-6 py-3">Date</th>
                                 <th class="px-6 py-3 text-right">Actions</th>
                             </tr>
@@ -433,7 +454,7 @@ const Components = {
         </div>
     `,
 
-    JobRow: (job, isTrash, showMenu) => {
+    JobRow: (job, isTrash, showMenu, serialNumber) => {
         const statusColors = {
             'UPLOADED': 'bg-slate-100 text-slate-700',
             'QUEUED': 'bg-yellow-50 text-yellow-700 border-yellow-200',
@@ -444,6 +465,18 @@ const Components = {
             'TRASHED': 'bg-slate-100 text-slate-400 border-slate-200'
         };
         const badgeClass = statusColors[job.status] || statusColors['UPLOADED'];
+
+        // Format duration
+        const formatDuration = (seconds) => {
+            if (!seconds && seconds !== 0) return '—';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            if (h > 0) {
+                return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        };
 
         const menuHTML = showMenu ? `
             <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-slate-100 actions-menu animate-in fade-in zoom-in duration-200">
@@ -460,6 +493,9 @@ const Components = {
 
         return `
             <tr class="hover:bg-slate-50 transition cursor-pointer group relative" onclick="${job.status === 'COMPLETED' ? `App.openTranscript('${job.id}')` : ''}">
+                <td class="px-4 py-4 text-center">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-xs font-bold text-slate-500 tabular-nums">${serialNumber}</span>
+                </td>
                 <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
                         <div class="bg-slate-100 p-2 rounded text-slate-500">
@@ -472,6 +508,12 @@ const Components = {
                     <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}">
                         ${job.status}
                     </span>
+                </td>
+                <td class="px-6 py-4 text-slate-500 text-sm tabular-nums">
+                    <div class="flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        ${formatDuration(job.duration_seconds)}
+                    </div>
                 </td>
                 <td class="px-6 py-4 text-slate-500 text-sm">
                     ${new Date(job.created_at).toLocaleDateString()}

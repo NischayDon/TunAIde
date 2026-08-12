@@ -205,7 +205,15 @@ const App = {
 
         if (!tbody) return;
 
-        if (App.state.jobs.length === 0) {
+        // Sort jobs by created_at descending (newest first)
+        const sortedJobs = [...App.state.jobs].sort((a, b) => 
+            new Date(b.created_at) - new Date(a.created_at)
+        );
+
+        // Update completion tracker
+        App.updateCompletionTracker(sortedJobs);
+
+        if (sortedJobs.length === 0) {
             tbody.innerHTML = '';
             emptyState.classList.remove('hidden');
             if (App.state.view === 'trash') {
@@ -219,9 +227,26 @@ const App = {
         }
 
         emptyState.classList.add('hidden');
-        tbody.innerHTML = App.state.jobs.map(job =>
-            Components.JobRow(job, App.state.view === 'trash', App.state.activeActionMenu === job.id)
+        // Serial numbers: newest = #1
+        tbody.innerHTML = sortedJobs.map((job, index) =>
+            Components.JobRow(job, App.state.view === 'trash', App.state.activeActionMenu === job.id, index + 1)
         ).join('');
+    },
+
+    updateCompletionTracker: (jobs) => {
+        const trackerText = document.getElementById('trackerText');
+        const trackerPercent = document.getElementById('trackerPercent');
+        const trackerBar = document.getElementById('trackerBar');
+
+        if (!trackerText) return;
+
+        const total = jobs.length;
+        const completed = jobs.filter(j => j.status === 'COMPLETED').length;
+        const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        trackerText.textContent = `${completed} of ${total} file${total !== 1 ? 's' : ''} completed`;
+        if (trackerPercent) trackerPercent.textContent = `${pct}%`;
+        if (trackerBar) trackerBar.style.width = `${pct}%`;
     },
 
     handleUpload: async (input) => {

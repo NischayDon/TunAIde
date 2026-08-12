@@ -23,6 +23,7 @@ class JobResponse(JobBase):
     id: str
     status: JobStatus
     storage_path: Optional[str] = None
+    duration_seconds: Optional[int] = None
     created_at: datetime
     error_message: Optional[str] = None
     
