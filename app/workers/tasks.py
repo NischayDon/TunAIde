@@ -1,9 +1,10 @@
 import os
 import subprocess
+import json
 
 from app.workers.celery_app import celery_app
 from app.db.base import SessionLocal
-from app.db.models import Job, JobStatus, Transcript
+from app.db.models import Job, JobStatus, Transcript, User
 from app.core.config import settings
 from app.services.transcription import transcription_service
 from app.services.timestamp_agent import timestamp_agent
@@ -11,6 +12,44 @@ from app.services.storage import storage_service
 
 import wave
 import contextlib
+
+
+def parse_time_value(val):
+    """Convert a time value (float seconds OR 'HH:MM:SS'/'MM:SS' string) to numeric seconds."""
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    if isinstance(val, str):
+        try:
+            return float(val)
+        except ValueError:
+            pass
+        # Parse HH:MM:SS or MM:SS
+        parts = val.strip().split(":")
+        try:
+            if len(parts) == 3:
+                return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+            elif len(parts) == 2:
+                return int(parts[0]) * 60 + float(parts[1])
+        except (ValueError, IndexError):
+            pass
+    return 0.0
+
+
+def get_audio_duration_ffprobe(file_path: str) -> float:
+    """Use ffprobe to get audio duration in seconds. Returns 0 on failure."""
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", file_path],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return float(result.stdout.strip())
+    except Exception as e:
+        print(f"ffprobe duration failed: {e}")
+    return 0.0
 
 @celery_app.task(name="app.workers.tasks.process_audio", bind=True)
 def process_audio(self, job_id: str):
@@ -76,12 +115,19 @@ def process_audio_file(job_id: str):
         segments = timestamp_agent.generate_timestamps(input_path, transcription_result["text"])
         if segments:
             transcription_result["metadata"]["segments"] = segments
-            # Compute duration from the last segment's end time
-            last_end = max((s.get("end", 0) for s in segments), default=0)
+            # Compute duration from the last segment's end time (handles string timestamps)
+            last_end = max((parse_time_value(s.get("end", 0)) for s in segments), default=0)
             if last_end > 0:
                 transcription_result["metadata"]["duration"] = last_end
         else:
             print("Warning: Gemini failed to generate timestamps. Falling back to text-only.")
+        
+        # Fallback: use ffprobe if we still have no duration
+        if not transcription_result["metadata"].get("duration"):
+            probe_duration = get_audio_duration_ffprobe(input_path)
+            if probe_duration > 0:
+                transcription_result["metadata"]["duration"] = probe_duration
+                print(f"Duration from ffprobe: {probe_duration}s")
         
         # 6. Save Transcript
         new_transcript = Transcript(
@@ -123,7 +169,13 @@ def process_audio_file(job_id: str):
         # 8. Complete Job
         job.status = JobStatus.COMPLETED.value
         # Use duration from metadata (calculated in service or from segments)
-        job.duration_seconds = transcription_result["metadata"].get("duration", 0) 
+        raw_duration = transcription_result["metadata"].get("duration", 0)
+        job.duration_seconds = int(parse_time_value(raw_duration)) if raw_duration else 0
+        
+        # 9. Increment lifetime completed counter
+        user = db.query(User).filter(User.id == job.user_id).first()
+        if user:
+            user.total_completed = (user.total_completed or 0) + 1
             
         db.commit()
         print(f"Job {job_id} Completed Successfully.")

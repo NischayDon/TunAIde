@@ -32,6 +32,10 @@ class User(Base):
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
+    # Lifetime counters — only increment, never decrement on delete
+    total_uploads = Column(Integer, default=0)
+    total_completed = Column(Integer, default=0)
+    
     jobs = relationship("Job", back_populates="user")
 
 class Job(Base):

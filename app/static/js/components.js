@@ -251,7 +251,7 @@ const Components = {
                      </div>
                 </div>
 
-                <!-- Completion Tracker -->
+                <!-- Completion Tracker (Lifetime) -->
                 <div id="completionTracker" class="mb-6 bg-white rounded-lg shadow-sm border border-slate-200 p-5">
                     <div class="flex items-center justify-between mb-3">
                         <div class="flex items-center gap-3">
@@ -259,7 +259,7 @@ const Components = {
                                 <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             </div>
                             <div>
-                                <p class="text-sm font-semibold text-slate-900">Transcription Progress</p>
+                                <p class="text-sm font-semibold text-slate-900">All-Time Transcription Progress</p>
                                 <p class="text-xs text-slate-500" id="trackerText">0 of 0 files completed</p>
                             </div>
                         </div>
@@ -267,6 +267,42 @@ const Components = {
                     </div>
                     <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                         <div id="trackerBar" class="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Activity Chart (7-Day Bar Graph) -->
+                <div id="activityChartContainer" class="mb-6 bg-white rounded-lg shadow-sm border border-slate-200 p-5">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-900">Weekly Activity</p>
+                            <p class="text-xs text-slate-500">Uploads & completions over the last 7 days</p>
+                        </div>
+                    </div>
+                    <div id="activityChart" class="activity-chart">
+                        <div class="activity-chart-loading">
+                            <div class="animate-pulse flex gap-3 items-end h-32">
+                                <div class="flex-1 bg-slate-100 rounded h-8"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-16"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-12"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-20"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-10"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-14"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-6"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 mt-3 justify-end">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>
+                            <span class="text-xs text-slate-500">Uploaded</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span>
+                            <span class="text-xs text-slate-500">Completed</span>
+                        </div>
                     </div>
                 </div>
 
@@ -349,6 +385,11 @@ const Components = {
             <div id="audioPlayerSlab" class="audio-player-slab" tabindex="-1"
                  onmouseenter="App.audioPlayerHovered = true; this.focus();"
                  onmouseleave="App.audioPlayerHovered = false; this.blur();">
+                
+                <!-- Drag Handle -->
+                <div id="audioDragHandle" class="audio-drag-handle" title="Drag to reposition">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                </div>
                 
                 <audio id="audioElement" preload="auto"></audio>
 

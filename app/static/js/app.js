@@ -9,7 +9,9 @@ const App = {
         adminStats: [],
         showTimestamps: false,
         isEditing: false,
-        audioPlaybackRate: 1.0
+        audioPlaybackRate: 1.0,
+        lifetimeStats: null,
+        dailyStats: null
     },
 
     // Audio player state (not persisted)
@@ -210,8 +212,12 @@ const App = {
             new Date(b.created_at) - new Date(a.created_at)
         );
 
-        // Update completion tracker
-        App.updateCompletionTracker(sortedJobs);
+        // Update completion tracker using lifetime stats
+        App.loadLifetimeStats();
+        // Load activity chart on dashboard
+        if (App.state.view === 'dashboard') {
+            App.loadDailyStats();
+        }
 
         if (sortedJobs.length === 0) {
             tbody.innerHTML = '';
@@ -233,20 +239,78 @@ const App = {
         ).join('');
     },
 
-    updateCompletionTracker: (jobs) => {
+    loadLifetimeStats: async () => {
+        if (!App.state.token) return;
+        try {
+            const res = await App.authFetch(`${App.API_URL}/jobs/stats`);
+            if (res.ok) {
+                const stats = await res.json();
+                App.state.lifetimeStats = stats;
+                App.updateCompletionTracker(stats);
+            }
+        } catch (e) {
+            console.error('Failed to load lifetime stats:', e);
+        }
+    },
+
+    updateCompletionTracker: (stats) => {
         const trackerText = document.getElementById('trackerText');
         const trackerPercent = document.getElementById('trackerPercent');
         const trackerBar = document.getElementById('trackerBar');
 
         if (!trackerText) return;
 
-        const total = jobs.length;
-        const completed = jobs.filter(j => j.status === 'COMPLETED').length;
+        const total = stats.total_ever || 0;
+        const completed = stats.completed_ever || 0;
         const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-        trackerText.textContent = `${completed} of ${total} file${total !== 1 ? 's' : ''} completed`;
+        trackerText.textContent = `${completed} of ${total} file${total !== 1 ? 's' : ''} completed (all-time)`;
         if (trackerPercent) trackerPercent.textContent = `${pct}%`;
         if (trackerBar) trackerBar.style.width = `${pct}%`;
+    },
+
+    loadDailyStats: async () => {
+        if (!App.state.token) return;
+        try {
+            const res = await App.authFetch(`${App.API_URL}/jobs/stats/daily`);
+            if (res.ok) {
+                const data = await res.json();
+                App.state.dailyStats = data;
+                App.renderActivityChart(data);
+            }
+        } catch (e) {
+            console.error('Failed to load daily stats:', e);
+        }
+    },
+
+    renderActivityChart: (days) => {
+        const container = document.getElementById('activityChart');
+        if (!container) return;
+
+        const maxVal = Math.max(...days.map(d => Math.max(d.uploaded, d.completed)), 1);
+        const chartHeight = 140; // px
+
+        const barsHtml = days.map(d => {
+            const uploadH = (d.uploaded / maxVal) * chartHeight;
+            const completeH = (d.completed / maxVal) * chartHeight;
+            const isToday = d.label === new Date().toLocaleDateString('en-US', { weekday: 'short' });
+
+            return `
+                <div class="activity-bar-group">
+                    <div class="activity-bar-pair" style="height: ${chartHeight}px;">
+                        <div class="activity-bar activity-bar--upload" style="height: ${uploadH}px;" title="${d.uploaded} uploaded">
+                            ${d.uploaded > 0 ? `<span class="activity-bar-value">${d.uploaded}</span>` : ''}
+                        </div>
+                        <div class="activity-bar activity-bar--complete" style="height: ${completeH}px;" title="${d.completed} completed">
+                            ${d.completed > 0 ? `<span class="activity-bar-value">${d.completed}</span>` : ''}
+                        </div>
+                    </div>
+                    <span class="activity-bar-label ${isToday ? 'activity-bar-label--today' : ''}">${d.label}</span>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `<div class="activity-chart-bars">${barsHtml}</div>`;
     },
 
     handleUpload: async (input) => {
@@ -664,6 +728,72 @@ const App = {
         if (slab) {
             slab.addEventListener('keydown', App._audioKeyHandler);
         }
+
+        // Initialize drag functionality
+        App.initDragPlayer();
+    },
+
+    initDragPlayer: () => {
+        const slab = document.getElementById('audioPlayerSlab');
+        const handle = document.getElementById('audioDragHandle');
+        if (!slab || !handle) return;
+
+        let isDragging = false;
+        let startX, startY, startLeft, startTop;
+
+        const onMouseDown = (e) => {
+            e.preventDefault();
+            isDragging = true;
+
+            const rect = slab.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left;
+            startTop = rect.top;
+
+            slab.style.transition = 'none';
+            slab.classList.add('audio-player-dragging');
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        };
+
+        const onMouseMove = (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            let newLeft = startLeft + dx;
+            let newTop = startTop + dy;
+
+            // Clamp to viewport
+            const slabW = slab.offsetWidth;
+            const slabH = slab.offsetHeight;
+            newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - slabW));
+            newTop = Math.max(0, Math.min(newTop, window.innerHeight - slabH));
+
+            slab.style.left = newLeft + 'px';
+            slab.style.top = newTop + 'px';
+            slab.style.bottom = 'auto';
+            slab.style.right = 'auto';
+        };
+
+        const onMouseUp = () => {
+            isDragging = false;
+            slab.style.transition = '';
+            slab.classList.remove('audio-player-dragging');
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+
+        handle.addEventListener('mousedown', onMouseDown);
+
+        // Store cleanup ref
+        App._dragCleanup = () => {
+            handle.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
     },
 
     destroyAudioPlayer: () => {
@@ -685,6 +815,20 @@ const App = {
         }
         App._audioKeyHandler = null;
         App.audioPlayerHovered = false;
+
+        // Cleanup drag
+        if (App._dragCleanup) {
+            App._dragCleanup();
+            App._dragCleanup = null;
+        }
+
+        // Reset player position
+        if (slab) {
+            slab.style.left = '';
+            slab.style.top = '';
+            slab.style.bottom = '';
+            slab.style.right = '';
+        }
     },
 
     togglePlayPause: () => {

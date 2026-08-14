@@ -8,7 +8,7 @@ from docx import Document
 from fastapi.responses import StreamingResponse, Response
 from pydantic import EmailStr, BaseModel
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from app.db.base import get_db
 from app.db.models import Job, JobStatus, Transcript, User, SupportingDocument
@@ -99,6 +99,10 @@ def initiate_upload(
             login_date=datetime.now(timezone.utc)
         )
         db.add(new_job)
+        
+        # Increment lifetime upload counter
+        user.total_uploads = (user.total_uploads or 0) + 1
+        
         db.commit()
         db.refresh(new_job)
         print(f"Job created successfully: {new_job.id}")
@@ -162,6 +166,52 @@ def list_jobs(
 
     jobs = query.order_by(Job.created_at.desc()).offset(skip).limit(limit).all()
     return jobs
+
+@router.get("/stats")
+def get_lifetime_stats(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Get lifetime upload/completion stats (survives permanent deletion)."""
+    return {
+        "total_ever": user.total_uploads or 0,
+        "completed_ever": user.total_completed or 0
+    }
+
+@router.get("/stats/daily")
+def get_daily_stats(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Get per-day upload/completion counts for the last 7 days (includes all statuses)."""
+    now = datetime.now(timezone.utc)
+    days = []
+    for i in range(6, -1, -1):
+        day = now - timedelta(days=i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        
+        uploaded = db.query(Job).filter(
+            Job.user_id == user.id,
+            Job.created_at >= day_start,
+            Job.created_at < day_end
+        ).count()
+        
+        completed = db.query(Job).filter(
+            Job.user_id == user.id,
+            Job.created_at >= day_start,
+            Job.created_at < day_end,
+            Job.status == JobStatus.COMPLETED.value
+        ).count()
+        
+        days.append({
+            "date": day_start.strftime("%Y-%m-%d"),
+            "label": day_start.strftime("%a"),
+            "uploaded": uploaded,
+            "completed": completed
+        })
+    
+    return days
 
 @router.patch("/{job_id}", response_model=JobResponse)
 def update_ledger_entry(
