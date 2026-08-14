@@ -28,9 +28,11 @@ class Token(BaseModel):
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == login_data.username).first()
     if not user:
+        print(f"LOGIN FAILED: Username '{login_data.username}' not found in database.")
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     
     if not security.verify_password(login_data.password, user.hashed_password):
+        print(f"LOGIN FAILED: Incorrect password for username '{login_data.username}'.")
         raise HTTPException(status_code=400, detail="Incorrect username or password")
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
