@@ -27,6 +27,18 @@ async def lifespan(app: FastAPI):
             print(f"Checking database connection (Attempt {i+1}/{retries})...")
             # Create tables (also verifies connection)
             Base.metadata.create_all(bind=engine)
+            
+            # Auto-migrate missing columns (for existing databases)
+            with engine.connect() as conn:
+                try:
+                    conn.execute(text("SELECT total_uploads FROM users LIMIT 1"))
+                except Exception:
+                    conn.rollback()  # Clear aborted transaction in Postgres
+                    print("Auto-migrating: Adding missing columns to users table...")
+                    conn.execute(text("ALTER TABLE users ADD COLUMN total_uploads INTEGER DEFAULT 0"))
+                    conn.execute(text("ALTER TABLE users ADD COLUMN total_completed INTEGER DEFAULT 0"))
+                    conn.commit()
+            
             # Simple query to verify
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
