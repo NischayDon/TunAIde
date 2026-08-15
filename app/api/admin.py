@@ -99,3 +99,24 @@ def delete_user(
     db.delete(user_to_delete)
     db.commit()
     return {"message": "User deleted successfully"}
+
+@router.post("/users/{username}/reset-tracker")
+def reset_tracker(
+    username: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    user_to_reset = db.query(User).filter(User.username == username).first()
+    if not user_to_reset:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if user_to_reset.is_admin and user_to_reset.username != current_user.username:
+        raise HTTPException(status_code=403, detail="Cannot reset other administrator's tracker")
+        
+    user_to_reset.total_uploads = 0
+    user_to_reset.total_completed = 0
+    db.commit()
+    return {"message": "Tracker reset successfully"}

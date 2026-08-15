@@ -191,6 +191,7 @@ const App = {
                 if ((App.state.view === 'admin' || App.state.view === 'user-management') && main) {
                     if (App.state.view === 'admin') {
                         main.innerHTML = Components.AdminDashboard(App.state.adminStats);
+                        App.loadDailyStats(); // Load activity chart on Admin Dashboard
                     } else {
                         main.innerHTML = Components.UserManagement(App.state.adminStats);
                     }
@@ -214,10 +215,6 @@ const App = {
 
         // Update completion tracker using lifetime stats
         App.loadLifetimeStats();
-        // Load activity chart on dashboard
-        if (App.state.view === 'dashboard') {
-            App.loadDailyStats();
-        }
 
         if (sortedJobs.length === 0) {
             tbody.innerHTML = '';
@@ -445,6 +442,28 @@ const App = {
             }
 
             App.loadAdminStats(); // Reload list
+        } catch (e) {
+            alert(e.message);
+        }
+    },
+
+    resetTracker: async (username) => {
+        if (!confirm(`Are you sure you want to reset the lifetime tracker for ${username}? This cannot be undone.`)) return;
+        try {
+            const res = await App.authFetch(`${App.API_URL}/admin/users/${username}/reset-tracker`, {
+                method: 'POST'
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "Failed to reset tracker");
+            }
+
+            alert(`Tracker reset successfully for ${username}.`);
+            if (username === App.state.user.username) {
+                App.loadLifetimeStats(); // Update own tracker UI immediately
+            }
+            App.loadAdminStats(); // Refresh admin table
         } catch (e) {
             alert(e.message);
         }

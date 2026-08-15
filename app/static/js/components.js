@@ -31,6 +31,42 @@ const Components = {
             <div class="max-w-6xl mx-auto p-8">
                 <h2 class="text-2xl font-semibold text-slate-900 mb-8">Admin Dashboard</h2>
                 
+                <!-- Activity Chart (7-Day Bar Graph) -->
+                <div id="activityChartContainer" class="mb-6 bg-white rounded-lg shadow-sm border border-slate-200 p-5">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-900">Weekly Activity</p>
+                            <p class="text-xs text-slate-500">Uploads & completions over the last 7 days</p>
+                        </div>
+                    </div>
+                    <div id="activityChart" class="activity-chart">
+                        <div class="activity-chart-loading">
+                            <div class="animate-pulse flex gap-3 items-end h-32">
+                                <div class="flex-1 bg-slate-100 rounded h-8"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-16"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-12"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-20"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-10"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-14"></div>
+                                <div class="flex-1 bg-slate-100 rounded h-6"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 mt-3 justify-end">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>
+                            <span class="text-xs text-slate-500">Uploaded</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-sm bg-green-500"></span>
+                            <span class="text-xs text-slate-500">Completed</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-6 border-b border-slate-200">
                         <h3 class="text-lg font-medium text-slate-900">User Statistics</h3>
@@ -43,6 +79,7 @@ const Components = {
                                 <th class="px-6 py-3 text-right">Files Uploaded</th>
                                 <th class="px-6 py-3 text-right">Transcribed (Min)</th>
                                 <th class="px-6 py-3 text-right">Last Login</th>
+                                <th class="px-6 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -52,10 +89,16 @@ const Components = {
                                     <td class="px-6 py-4 text-right tabular-nums">${u.upload_count}</td>
                                     <td class="px-6 py-4 text-right tabular-nums">${u.transcribed_minutes.toFixed(2)}</td>
                                     <td class="px-6 py-4 text-right text-slate-500 text-sm">${u.last_login ? new Date(u.last_login).toLocaleString() : '-'}</td>
+                                    <td class="px-6 py-4 text-right text-sm">
+                                        ${(u.is_admin && u.username !== App.state.user.username) 
+                                            ? '<span class="text-slate-400 italic">Cannot Reset</span>'
+                                            : `<button onclick="App.resetTracker('${u.username}')" class="text-red-600 hover:text-red-900 font-medium border border-red-200 bg-red-50 px-3 py-1 rounded">Reset Tracker</button>`
+                                        }
+                                    </td>
                                 </tr>
                             `).join('') : `
                                 <tr>
-                                    <td colspan="4" class="px-6 py-8 text-center text-slate-400">No user data available</td>
+                                    <td colspan="5" class="px-6 py-8 text-center text-slate-400">No user data available</td>
                                 </tr>
                             `}
                         </tbody>
@@ -270,40 +313,6 @@ const Components = {
                     </div>
                 </div>
 
-                <!-- Activity Chart (7-Day Bar Graph) -->
-                <div id="activityChartContainer" class="mb-6 bg-white rounded-lg shadow-sm border border-slate-200 p-5">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                        </div>
-                        <div>
-                            <p class="text-sm font-semibold text-slate-900">Weekly Activity</p>
-                            <p class="text-xs text-slate-500">Uploads & completions over the last 7 days</p>
-                        </div>
-                    </div>
-                    <div id="activityChart" class="activity-chart">
-                        <div class="activity-chart-loading">
-                            <div class="animate-pulse flex gap-3 items-end h-32">
-                                <div class="flex-1 bg-slate-100 rounded h-8"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-16"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-12"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-20"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-10"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-14"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-6"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-4 mt-3 justify-end">
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>
-                            <span class="text-xs text-slate-500">Uploaded</span>
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span>
-                            <span class="text-xs text-slate-500">Completed</span>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- File List -->
