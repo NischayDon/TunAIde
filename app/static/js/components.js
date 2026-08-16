@@ -773,4 +773,5 @@ const Components = {
             </div>
         </div>
     `
+    }
 };
