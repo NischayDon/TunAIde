@@ -15,6 +15,7 @@ class SupportingDocumentResponse(BaseModel):
     id: str
     original_filename: str
     file_size_bytes: Optional[int] = None
+    description: Optional[str] = None
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)

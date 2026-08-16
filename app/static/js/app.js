@@ -2,7 +2,7 @@ const App = {
     state: {
         jobs: [],
         currentJob: null,
-        view: 'dashboard', // 'dashboard' | 'transcript' | 'trash' | 'admin' | 'login'
+        view: 'dashboard', // 'dashboard' | 'transcript' | 'trash' | 'admin' | 'login' | 'ledger' | 'ledger-detail'
         activeActionMenu: null,
         token: localStorage.getItem('access_token'),
         user: JSON.parse(localStorage.getItem('user_info') || 'null'),
@@ -11,7 +11,8 @@ const App = {
         isEditing: false,
         audioPlaybackRate: 1.0,
         lifetimeStats: null,
-        dailyStats: null
+        dailyStats: null,
+        popupQueue: []
     },
 
     // Audio player state (not persisted)
@@ -70,6 +71,11 @@ const App = {
         if (App.state.view === 'dashboard' || App.state.view === 'trash') {
             main.innerHTML = Components.Dashboard(App.state.view);
             App.renderJobsList();
+        } else if (App.state.view === 'ledger') {
+            main.innerHTML = Components.LedgerView();
+            App.renderLedgerList();
+        } else if (App.state.view === 'ledger-detail') {
+            main.innerHTML = Components.LedgerDetailView(App.state.currentJob);
         } else if (App.state.view === 'transcript') {
             main.innerHTML = Components.TranscriptView();
             App.renderTranscript();
@@ -170,7 +176,21 @@ const App = {
             if (!res.ok) throw new Error("Failed to fetch jobs");
             const jobs = await res.json();
 
+            // Detect newly completed jobs for ledger popup
+            if (App.state.jobs && App.state.jobs.length > 0) {
+                const oldJobsMap = {};
+                App.state.jobs.forEach(j => oldJobsMap[j.id] = j);
+                
+                jobs.forEach(j => {
+                    const oldJob = oldJobsMap[j.id];
+                    if (oldJob && oldJob.status !== 'COMPLETED' && j.status === 'COMPLETED' && !j.service_type) {
+                        App.state.popupQueue.push(j);
+                    }
+                });
+            }
+
             App.state.jobs = jobs;
+            App.processPopupQueue();
             if (App.state.view === 'dashboard' || App.state.view === 'trash') {
                 App.renderJobsList();
             }
@@ -651,6 +671,217 @@ const App = {
                 btn.disabled = false;
                 btn.innerText = originalText;
             }
+        }
+    },
+
+    // =====================================================
+    // Ledger Functions
+    // =====================================================
+
+    processPopupQueue: () => {
+        if (App.state.popupQueue.length > 0) {
+            const jobToPopup = App.state.popupQueue[0];
+            const modal = document.getElementById('ledgerPopupModal');
+            if (!modal) {
+                if(!document.getElementById('globalLedgerPopupContainer')) {
+                    const container = document.createElement('div');
+                    container.id = 'globalLedgerPopupContainer';
+                    document.body.appendChild(container);
+                }
+                document.getElementById('globalLedgerPopupContainer').innerHTML = Components.LedgerPopup(jobToPopup);
+            }
+        }
+    },
+
+    saveLedgerPopup: async (jobId, serviceType, fullName) => {
+        if(!serviceType || !fullName) {
+            alert('Please fill out all fields.');
+            return;
+        }
+        const nameParts = fullName.trim().split(' ');
+        const clientName = nameParts[0];
+        const clientSurname = nameParts.slice(1).join(' ');
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    service_type: serviceType,
+                    client_name: clientName,
+                    client_surname: clientSurname
+                })
+            });
+            if (res.ok) {
+                // Remove from queue
+                App.state.popupQueue = App.state.popupQueue.filter(j => j.id !== jobId);
+                
+                // Close modal
+                const container = document.getElementById('globalLedgerPopupContainer');
+                if (container) container.innerHTML = '';
+                
+                App.loadJobs();
+                App.processPopupQueue();
+            } else {
+                alert('Failed to save ledger data');
+            }
+        } catch(e) {
+            console.error(e);
+            alert('Error saving ledger data');
+        }
+    },
+
+    closeLedgerPopup: (jobId) => {
+        App.state.popupQueue = App.state.popupQueue.filter(j => j.id !== jobId);
+        const container = document.getElementById('globalLedgerPopupContainer');
+        if (container) container.innerHTML = '';
+        App.processPopupQueue();
+    },
+
+    renderLedgerList: () => {
+        const tbody = document.getElementById('ledgerTableBody');
+        if (!tbody) return;
+        
+        // Filter jobs that have service_type (i.e. filled via popup or edited)
+        const ledgerJobs = App.state.jobs.filter(j => j.service_type);
+        
+        if (ledgerJobs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-500">No ledger entries yet.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = ledgerJobs.map(job => Components.LedgerRow(job)).join('');
+    },
+
+    openLedgerDetail: async (jobId) => {
+        const job = App.state.jobs.find(j => j.id === jobId);
+        if (job) App.state.currentJob = job;
+        App.navigateTo('ledger-detail');
+        // Load documents
+        try {
+            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/documents`);
+            if (res.ok) {
+                const docs = await res.json();
+                App.state.currentJob.supporting_documents = docs;
+                // Re-render
+                const main = document.getElementById('main-content');
+                if (main && App.state.view === 'ledger-detail') {
+                    main.innerHTML = Components.LedgerDetailView(App.state.currentJob);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load documents", e);
+        }
+    },
+    
+    saveLedgerEntry: async (jobId, field, value) => {
+        try {
+            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    [field]: value
+                })
+            });
+            if (res.ok) {
+                App.loadJobs();
+                // Optionally update currentJob if we are viewing it
+                if (App.state.currentJob && App.state.currentJob.id === jobId) {
+                    App.state.currentJob[field] = value;
+                }
+            } else {
+                alert('Failed to update field');
+            }
+        } catch(e) {
+            console.error(e);
+            alert('Error updating field');
+        }
+    },
+
+    uploadSupportingDocument: async (jobId) => {
+        const fileInput = document.getElementById('suppDocFile');
+        const descInput = document.getElementById('suppDocDesc');
+        const file = fileInput.files[0];
+        const description = descInput.value.trim();
+        
+        if(!file) {
+            alert('Please select a file');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        if (description) {
+            formData.append('description', description);
+        }
+        
+        const btn = document.getElementById('uploadSuppBtn');
+        btn.disabled = true;
+        btn.innerText = 'Uploading...';
+        
+        try {
+            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/documents`, {
+                method: 'POST',
+                body: formData
+            });
+            if(res.ok) {
+                const doc = await res.json();
+                if(!App.state.currentJob.supporting_documents) {
+                    App.state.currentJob.supporting_documents = [];
+                }
+                App.state.currentJob.supporting_documents.push(doc);
+                // Re-render
+                App.navigateTo('ledger-detail');
+            } else {
+                alert('Upload failed');
+            }
+        } catch(e) {
+            console.error(e);
+            alert('Upload error');
+        } finally {
+            App.toggleSuppDocModal(false);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = 'Upload';
+            }
+            if (fileInput) fileInput.value = '';
+            if (descInput) descInput.value = '';
+        }
+    },
+
+    toggleSuppDocModal: (show = true) => {
+        const modal = document.getElementById('suppDocModal');
+        if (modal) {
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+    },
+
+    downloadSupportingDocument: async (jobId, docId, filename) => {
+        try {
+            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/documents/${docId}/download`);
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                
+                // Check if text/pdf to open in new tab instead of forcing download
+                if (blob.type === 'application/pdf' || blob.type === 'text/plain') {
+                    window.open(url, '_blank');
+                } else {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                }
+                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+            } else {
+                alert('Download failed');
+            }
+        } catch (e) {
+            console.error("Download error", e);
+            alert("Download failed");
         }
     },
 

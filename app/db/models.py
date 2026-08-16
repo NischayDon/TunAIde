@@ -90,6 +90,7 @@ class SupportingDocument(Base):
     original_filename = Column(String, nullable=False)
     storage_path = Column(String, nullable=False)
     file_size_bytes = Column(BigInteger, nullable=True)
+    description = Column(String, nullable=True)
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

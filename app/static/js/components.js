@@ -187,6 +187,10 @@ const Components = {
             ? "bg-blue-50 text-blue-700"
             : "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
 
+        const ledgerClass = activeView === 'ledger' || activeView === 'ledger-detail'
+            ? "bg-blue-50 text-blue-700"
+            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
+
         const adminClass = activeView === 'admin'
             ? "bg-purple-50 text-purple-700"
             : "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
@@ -215,6 +219,10 @@ const Components = {
                 <button onclick="App.navigateTo('trash')" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${trashClass}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     Trash
+                </button>
+                <button onclick="App.navigateTo('ledger')" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${ledgerClass}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Ledger
                 </button>
                 
                 ${user && user.is_admin ? `
@@ -576,5 +584,193 @@ const Components = {
                 </td>
             </tr>
         `;
-    }
+    },
+
+    LedgerPopup: (job) => `
+        <div id="ledgerPopupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-900">Transcription Complete</h3>
+                        <p class="text-sm text-slate-500 mt-1">${job.original_filename}</p>
+                    </div>
+                    <button onclick="App.closeLedgerPopup('${job.id}')" class="text-slate-400 hover:text-slate-600 transition p-2 hover:bg-slate-100 rounded-full">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="p-6 space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Type of Service</label>
+                        <select id="ledgerPopupService" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition">
+                            <option value="">Select a service...</option>
+                            <option value="Recours">Recours</option>
+                            <option value="OFPRA">OFPRA</option>
+                            <option value="Réexamin">Réexamin</option>
+                            <option value="Tribunal">Tribunal</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Client Full Name</label>
+                        <input type="text" id="ledgerPopupName" placeholder="e.g. Jean Dupont" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition">
+                    </div>
+                </div>
+                <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                    <button onclick="App.closeLedgerPopup('${job.id}')" class="px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition">Skip</button>
+                    <button onclick="App.saveLedgerPopup('${job.id}', document.getElementById('ledgerPopupService').value, document.getElementById('ledgerPopupName').value)" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 hover:shadow-md transition">Save to Ledger</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    LedgerView: () => `
+        <div class="pl-64 min-h-screen bg-slate-50">
+            <div class="max-w-[95%] mx-auto p-8">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-2xl font-semibold text-slate-900">Ledger</h2>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead class="bg-slate-50 text-xs uppercase text-slate-500 font-semibold border-b border-slate-200">
+                                <tr>
+                                    <th class="px-6 py-4 rounded-tl-xl">Name</th>
+                                    <th class="px-6 py-4">Surname</th>
+                                    <th class="px-6 py-4">Type of Service</th>
+                                    <th class="px-6 py-4">Date of Birth</th>
+                                    <th class="px-6 py-4">Login Date</th>
+                                    <th class="px-6 py-4">Phone Number</th>
+                                    <th class="px-6 py-4">Payment</th>
+                                    <th class="px-6 py-4 rounded-tr-xl">Modified</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ledgerTableBody" class="divide-y divide-slate-100 text-sm">
+                                <!-- Ledger rows injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `,
+
+    LedgerRow: (job) => {
+        // Editable inline logic: double click or simple input depending on preference.
+        // We'll use inputs that trigger save on blur for simplicity, or just simple text that navigates to detail.
+        // The user asked to "edit and add in these fields".
+        const formatVal = (v) => v || '';
+        const formatDate = (v) => v ? new Date(v).toISOString().split('T')[0] : '';
+        const formatDateTime = (v) => v ? new Date(v).toLocaleString() : '';
+
+        return `
+            <tr class="hover:bg-blue-50/50 transition cursor-pointer group" onclick="if(!event.target.closest('input') && !event.target.closest('select')) App.openLedgerDetail('${job.id}')">
+                <td class="px-6 py-4">
+                    <input type="text" value="${formatVal(job.client_name)}" onchange="App.saveLedgerEntry('${job.id}', 'client_name', this.value)" class="bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-0 px-0 py-1 w-full text-sm font-medium text-slate-900 transition" placeholder="Add name">
+                </td>
+                <td class="px-6 py-4">
+                    <input type="text" value="${formatVal(job.client_surname)}" onchange="App.saveLedgerEntry('${job.id}', 'client_surname', this.value)" class="bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-0 px-0 py-1 w-full text-sm font-medium text-slate-900 transition" placeholder="Add surname">
+                </td>
+                <td class="px-6 py-4">
+                    <select onchange="App.saveLedgerEntry('${job.id}', 'service_type', this.value)" class="bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-0 px-0 py-1 w-full text-sm text-slate-700 transition">
+                        <option value="Recours" ${job.service_type === 'Recours' ? 'selected' : ''}>Recours</option>
+                        <option value="OFPRA" ${job.service_type === 'OFPRA' ? 'selected' : ''}>OFPRA</option>
+                        <option value="Réexamin" ${job.service_type === 'Réexamin' ? 'selected' : ''}>Réexamin</option>
+                        <option value="Tribunal" ${job.service_type === 'Tribunal' ? 'selected' : ''}>Tribunal</option>
+                    </select>
+                </td>
+                <td class="px-6 py-4">
+                    <input type="date" value="${formatDate(job.date_of_birth)}" onchange="App.saveLedgerEntry('${job.id}', 'date_of_birth', this.value ? new Date(this.value).toISOString() : null)" class="bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-0 px-0 py-1 text-sm text-slate-700 transition w-32">
+                </td>
+                <td class="px-6 py-4 text-slate-500 tabular-nums">
+                    ${formatDateTime(job.login_date)}
+                </td>
+                <td class="px-6 py-4">
+                    <input type="text" value="${formatVal(job.phone_number)}" onchange="App.saveLedgerEntry('${job.id}', 'phone_number', this.value)" class="bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-0 px-0 py-1 w-full text-sm text-slate-700 transition tabular-nums" placeholder="Add phone">
+                </td>
+                <td class="px-6 py-4">
+                    <input type="text" value="${formatVal(job.payment)}" onchange="App.saveLedgerEntry('${job.id}', 'payment', this.value)" class="bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-0 px-0 py-1 w-full text-sm text-slate-700 transition" placeholder="Add payment">
+                </td>
+                <td class="px-6 py-4 text-slate-400 tabular-nums text-xs">
+                    ${formatDateTime(job.updated_at)}
+                </td>
+            </tr>
+        `;
+    },
+
+    LedgerDetailView: (job) => {
+        if(!job) return '';
+        const docs = job.supporting_documents || [];
+        
+        return `
+        <div class="pl-64 min-h-screen bg-slate-50">
+            <div class="max-w-5xl mx-auto p-8">
+                
+                <!-- Header -->
+                <div class="flex items-center gap-4 mb-8">
+                    <button onclick="App.navigateTo('ledger')" class="p-2 -ml-2 rounded-full hover:bg-slate-200 text-slate-500 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    </button>
+                    <div>
+                        <h2 class="text-3xl font-bold text-slate-900 tracking-tight">${job.client_name || ''} ${job.client_surname || ''}</h2>
+                        <p class="text-slate-500 mt-1 font-medium">${job.service_type || 'No Service Type'} &middot; Uploaded ${new Date(job.login_date).toLocaleDateString()}</p>
+                    </div>
+                </div>
+
+                <!-- Document Actions -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-8">
+                    <h3 class="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Documents
+                    </h3>
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <button onclick="App.openTranscript('${job.id}')" class="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-slate-800 transition shadow-sm">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            View Transcript
+                        </button>
+                        
+                        <button onclick="App.toggleSuppDocModal(true)" class="flex items-center justify-center w-12 h-12 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition" title="Add Document">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        </button>
+                        
+                        ${docs.map(doc => `
+                            <button onclick="App.downloadSupportingDocument('${job.id}', '${doc.id}', '${doc.original_filename}')" class="flex items-center gap-3 bg-white border border-slate-200 shadow-sm px-4 py-3 rounded-lg hover:border-blue-300 hover:shadow-md transition group text-left">
+                                <div class="bg-blue-50 text-blue-600 p-2 rounded-md group-hover:bg-blue-100 transition">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-slate-900 text-sm truncate max-w-[200px]">${doc.description || doc.original_filename}</p>
+                                    <p class="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">${doc.original_filename}</p>
+                                </div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Document Upload Modal -->
+        <div id="suppDocModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h3 class="text-lg font-semibold text-slate-900">Upload Document</h3>
+                    <button onclick="App.toggleSuppDocModal(false)" class="text-slate-400 hover:text-slate-600 transition p-2 hover:bg-slate-100 rounded-full">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="p-6 space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Description / Title</label>
+                        <input type="text" id="suppDocDesc" placeholder="e.g. Identity Card" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Select File</label>
+                        <input type="file" id="suppDocFile" class="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition cursor-pointer">
+                    </div>
+                </div>
+                <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                    <button onclick="App.toggleSuppDocModal(false)" class="px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition">Cancel</button>
+                    <button id="uploadSuppBtn" onclick="App.uploadSupportingDocument('${job.id}')" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 hover:shadow-md transition">Upload</button>
+                </div>
+            </div>
+        </div>
+    `
 };

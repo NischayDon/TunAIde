@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, Request, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
 import uuid
@@ -532,46 +532,44 @@ def update_transcript(
 # Supporting Documents Endpoints
 # =====================================================
 
-@router.post("/{job_id}/documents", response_model=List[SupportingDocumentResponse])
-def upload_supporting_documents(
+@router.post("/{job_id}/documents", response_model=SupportingDocumentResponse)
+def upload_supporting_document(
     job_id: str,
-    files: List[UploadFile] = File(...),
+    file: UploadFile = File(...),
+    description: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """Upload one or more supporting documents for a ledger entry."""
+    """Upload a supporting document for a ledger entry."""
     job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    uploaded_docs = []
-    for file in files:
-        try:
-            # Save to storage
-            saved_filename = storage_service.save_file(file.file, file.filename)
-            
-            # Get file size
-            file.file.seek(0, 2)  # Seek to end
-            file_size = file.file.tell()
-            file.file.seek(0)
-            
-            doc = SupportingDocument(
-                job_id=job_id,
-                original_filename=file.filename,
-                storage_path=saved_filename,
-                file_size_bytes=file_size
-            )
-            db.add(doc)
-            uploaded_docs.append(doc)
-        except Exception as e:
-            print(f"Failed to upload supporting document {file.filename}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to upload {file.filename}: {str(e)}")
+    try:
+        # Save to storage
+        saved_filename = storage_service.save_file(file.file, file.filename)
+        
+        # Get file size
+        file.file.seek(0, 2)  # Seek to end
+        file_size = file.file.tell()
+        file.file.seek(0)
+        
+        doc = SupportingDocument(
+            job_id=job_id,
+            original_filename=file.filename,
+            storage_path=saved_filename,
+            file_size_bytes=file_size,
+            description=description
+        )
+        db.add(doc)
+    except Exception as e:
+        print(f"Failed to upload supporting document {file.filename}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload {file.filename}: {str(e)}")
     
     db.commit()
-    for doc in uploaded_docs:
-        db.refresh(doc)
+    db.refresh(doc)
     
-    return uploaded_docs
+    return doc
 
 @router.get("/{job_id}/documents", response_model=List[SupportingDocumentResponse])
 def list_supporting_documents(

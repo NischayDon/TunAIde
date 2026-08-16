@@ -38,6 +38,14 @@ async def lifespan(app: FastAPI):
                     conn.execute(text("ALTER TABLE users ADD COLUMN total_uploads INTEGER DEFAULT 0"))
                     conn.execute(text("ALTER TABLE users ADD COLUMN total_completed INTEGER DEFAULT 0"))
                     conn.commit()
+                
+                try:
+                    conn.execute(text("SELECT description FROM supporting_documents LIMIT 1"))
+                except Exception:
+                    conn.rollback()
+                    print("Auto-migrating: Adding description column to supporting_documents table...")
+                    conn.execute(text("ALTER TABLE supporting_documents ADD COLUMN description TEXT"))
+                    conn.commit()
             
             # Simple query to verify
             with engine.connect() as conn:
