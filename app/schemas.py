@@ -75,6 +75,8 @@ class AudioQueueItemCreate(AudioQueueItemBase):
 
 class AudioQueueItemResponse(AudioQueueItemBase):
     id: str
+    title: Optional[str] = None
+    artist: Optional[str] = None
     file_size_bytes: Optional[int] = None
     mime_type: Optional[str] = None
     duration_seconds: Optional[int] = None

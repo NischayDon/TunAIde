@@ -34,6 +34,9 @@ class Settings(BaseSettings):
 
     # Auth
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 300
+    
+    # Internal Service Authentication
+    PHASE_ONE_INGEST_TOKEN: str = ""
 
     # Email (FastAPI-Mail)
     MAIL_USERNAME: str = ""

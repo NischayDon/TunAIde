@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, ForeignKey, Text, DateTime, BigInteger, JSON, Boolean
+from sqlalchemy import Column, String, Integer, ForeignKey, Text, DateTime, BigInteger, JSON, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 import enum
 from app.db.base import Base
@@ -45,8 +45,14 @@ class User(Base):
 
 class AudioQueueItem(Base):
     __tablename__ = "audio_queue"
+    __table_args__ = (UniqueConstraint('source', 'source_upload_id', name='uq_source_upload_id'),)
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    source = Column(String, nullable=True)
+    source_upload_id = Column(String, nullable=True)
+    title = Column(String, nullable=True)
+    artist = Column(String, nullable=True)
+    note = Column(String, nullable=True)
     original_filename = Column(String, nullable=False)
     storage_path = Column(String, nullable=False)
     file_size_bytes = Column(BigInteger, nullable=True)
@@ -54,7 +60,7 @@ class AudioQueueItem(Base):
     duration_seconds = Column(Integer, nullable=True)
     status = Column(String, default=AudioQueueStatus.AVAILABLE.value, index=True)
     
-    uploaded_by_id = Column(String, ForeignKey("users.id"), nullable=False)
+    uploaded_by_id = Column(String, ForeignKey("users.id"), nullable=True)
     uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     
     claimed_by_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
