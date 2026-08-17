@@ -75,8 +75,11 @@ class AudioQueueItemCreate(AudioQueueItemBase):
 
 class AudioQueueItemResponse(AudioQueueItemBase):
     id: str
+    source: Optional[str] = None
+    source_upload_id: Optional[str] = None
     title: Optional[str] = None
     artist: Optional[str] = None
+    note: Optional[str] = None
     file_size_bytes: Optional[int] = None
     mime_type: Optional[str] = None
     duration_seconds: Optional[int] = None
@@ -86,3 +89,7 @@ class AudioQueueItemResponse(AudioQueueItemBase):
     # We do not expose uploaded_by or storage_path to the public queue response
     
     model_config = ConfigDict(from_attributes=True)
+
+class AudioQueueListResponse(BaseModel):
+    items: List[AudioQueueItemResponse]
+    total: int

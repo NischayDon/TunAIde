@@ -5,14 +5,14 @@ from datetime import datetime, timezone
 
 from app.db.base import get_db
 from app.db.models import AudioQueueItem, AudioQueueStatus, Job, JobStatus, User
-from app.schemas import AudioQueueItemResponse, JobResponse
+from app.schemas import AudioQueueItemResponse, JobResponse, AudioQueueListResponse
 from app.api.auth import get_current_user
 from app.services.storage import storage_service
 from app.workers.tasks import process_audio
 
 router = APIRouter()
 
-@router.get("/", response_model=dict)
+@router.get("/", response_model=AudioQueueListResponse)
 def list_queue_items(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
