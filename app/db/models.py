@@ -14,6 +14,11 @@ class JobStatus(str, enum.Enum):
     FAILED = "FAILED"
     TRASHED = "TRASHED"
 
+class AudioQueueStatus(str, enum.Enum):
+    AVAILABLE = "AVAILABLE"
+    CLAIMED = "CLAIMED"
+    REMOVED = "REMOVED"
+
 class ServiceType(str, enum.Enum):
     RECOURS = "Recours"
     OFPRA = "OFPRA"
@@ -38,6 +43,27 @@ class User(Base):
     
     jobs = relationship("Job", back_populates="user")
 
+class AudioQueueItem(Base):
+    __tablename__ = "audio_queue"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    original_filename = Column(String, nullable=False)
+    storage_path = Column(String, nullable=False)
+    file_size_bytes = Column(BigInteger, nullable=True)
+    mime_type = Column(String, nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+    status = Column(String, default=AudioQueueStatus.AVAILABLE.value, index=True)
+    
+    uploaded_by_id = Column(String, ForeignKey("users.id"), nullable=False)
+    uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    
+    claimed_by_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    claimed_at = Column(DateTime, nullable=True)
+    
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])
+    claimed_by = relationship("User", foreign_keys=[claimed_by_id])
+    jobs = relationship("Job", back_populates="queue_item")
+
 class Job(Base):
     __tablename__ = "jobs"
 
@@ -61,10 +87,16 @@ class Job(Base):
     phone_number = Column(String, nullable=True)       # Manually entered/edited
     payment = Column(String, nullable=True)            # Free-form payment info
     
+    queue_item_id = Column(String, ForeignKey("audio_queue.id"), nullable=True, index=True)
+    celery_task_id = Column(String, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="jobs")
+    queue_item = relationship("AudioQueueItem", back_populates="jobs")
     transcript = relationship("Transcript", back_populates="job", uselist=False, cascade="all, delete-orphan")
     supporting_documents = relationship("SupportingDocument", back_populates="job", cascade="all, delete-orphan")
 

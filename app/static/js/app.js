@@ -12,7 +12,8 @@ const App = {
         audioPlaybackRate: 1.0,
         lifetimeStats: null,
         dailyStats: null,
-        popupQueue: []
+        popupQueue: [],
+        sharedQueueItems: []
     },
 
     // Audio player state (not persisted)
@@ -34,7 +35,13 @@ const App = {
 
         if (App.state.token) {
             await App.loadJobs();
-            setInterval(App.loadJobs, 5000);
+            await App.loadSharedQueue();
+            setInterval(() => {
+                App.loadJobs();
+                if(App.state.view === 'shared-queue') {
+                    App.loadSharedQueue();
+                }
+            }, 5000);
         }
 
         document.addEventListener('click', (e) => {
@@ -86,6 +93,9 @@ const App = {
         } else if (App.state.view === 'user-management') {
             main.innerHTML = Components.UserManagement(App.state.adminStats); // Reusing adminStats as it contains user list
             App.loadAdminStats();
+        } else if (App.state.view === 'shared-queue') {
+            main.innerHTML = Components.SharedAudioQueue(App.state.sharedQueueItems);
+            App.loadSharedQueue();
         }
     },
 
@@ -111,6 +121,8 @@ const App = {
 
         if (viewName === 'dashboard' || viewName === 'trash') {
             App.loadJobs();
+        } else if (viewName === 'shared-queue') {
+            App.loadSharedQueue();
         }
     },
 
@@ -196,6 +208,23 @@ const App = {
             }
         } catch (e) {
             console.error("Load jobs error:", e);
+        }
+    },
+
+    loadSharedQueue: async () => {
+        if (!App.state.token) return;
+        try {
+            const res = await App.authFetch(`${App.API_URL}/queue/`);
+            if (res.ok) {
+                const data = await res.json();
+                App.state.sharedQueueItems = data.items;
+                if (App.state.view === 'shared-queue') {
+                    const main = document.getElementById('main-content');
+                    if (main) main.innerHTML = Components.SharedAudioQueue(App.state.sharedQueueItems);
+                }
+            }
+        } catch (e) {
+            console.error("Load shared queue error:", e);
         }
     },
 
@@ -369,6 +398,61 @@ const App = {
         } finally {
             if (uploadArea) uploadArea.classList.add('hidden');
             input.value = '';
+        }
+    },
+
+    handleSharedQueueUpload: async (input) => {
+        const file = input.files[0];
+        if (!file) return;
+
+        const uploadArea = document.getElementById('sharedUploadArea');
+        const uploadText = document.getElementById('sharedUploadText');
+        if (uploadArea) {
+            uploadArea.classList.remove('hidden');
+            uploadText.textContent = `Uploading ${file.name} to shared queue...`;
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const uploadRes = await App.authFetch(`${App.API_URL}/queue/upload`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!uploadRes.ok) throw new Error("Upload failed");
+            
+            await App.loadSharedQueue();
+
+        } catch (err) {
+            console.error(err);
+            alert("Upload failed: " + err.message);
+        } finally {
+            if (uploadArea) uploadArea.classList.add('hidden');
+            input.value = '';
+        }
+    },
+
+    claimSharedQueueItem: async (itemId) => {
+        if (!confirm("Claim this audio for your personal transcription?")) return;
+        try {
+            const res = await App.authFetch(`${App.API_URL}/queue/${itemId}/claim`, {
+                method: 'POST'
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "Claim failed");
+            }
+            
+            alert("Successfully claimed! It is now processing in your dashboard.");
+            App.navigateTo('dashboard');
+        } catch (err) {
+            console.error(err);
+            alert("Failed to claim: " + err.message);
+            // Refresh queue just in case it was already claimed
+            App.loadSharedQueue();
         }
     },
 

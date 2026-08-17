@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional, Any, List
-from app.db.models import JobStatus
+from app.db.models import JobStatus, AudioQueueStatus
 
 # --- Job Schemas ---
 
@@ -65,3 +65,22 @@ class TranscriptResponse(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
+# --- Audio Queue Schemas ---
+
+class AudioQueueItemBase(BaseModel):
+    original_filename: str
+
+class AudioQueueItemCreate(AudioQueueItemBase):
+    pass
+
+class AudioQueueItemResponse(AudioQueueItemBase):
+    id: str
+    file_size_bytes: Optional[int] = None
+    mime_type: Optional[str] = None
+    duration_seconds: Optional[int] = None
+    status: AudioQueueStatus
+    uploaded_at: datetime
+    
+    # We do not expose uploaded_by or storage_path to the public queue response
+    
+    model_config = ConfigDict(from_attributes=True)

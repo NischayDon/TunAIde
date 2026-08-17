@@ -187,6 +187,10 @@ const Components = {
             ? "bg-blue-50 text-blue-700"
             : "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
 
+        const sharedClass = activeView === 'shared-queue'
+            ? "bg-blue-50 text-blue-700"
+            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
+
         const ledgerClass = activeView === 'ledger' || activeView === 'ledger-detail'
             ? "bg-blue-50 text-blue-700"
             : "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
@@ -215,6 +219,10 @@ const Components = {
                 <button onclick="App.navigateTo('dashboard')" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${dashboardClass}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                     My Files
+                </button>
+                <button onclick="App.navigateTo('shared-queue')" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${sharedClass}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    Shared Queue
                 </button>
                 <button onclick="App.navigateTo('trash')" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${trashClass}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -258,6 +266,113 @@ const Components = {
             </div>
         </div>
     `},
+
+    SharedAudioQueue: (items = []) => {
+        // Format duration
+        const formatDuration = (seconds) => {
+            if (!seconds && seconds !== 0) return '—';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            if (h > 0) {
+                return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        };
+
+        const formatSize = (bytes) => {
+            if (!bytes) return '—';
+            return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+        };
+
+        const listHtml = items.map((item, index) => `
+            <tr class="hover:bg-slate-50 transition border-b border-slate-100 last:border-0">
+                <td class="px-4 py-4 text-center">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-xs font-bold text-slate-500 tabular-nums">${index + 1}</span>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-slate-100 p-2 rounded text-slate-500">
+                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 3-2 3-2 3 2zm0 0v-8"></path></svg>
+                        </div>
+                        <span class="font-medium text-slate-900 group-hover:text-blue-600 transition">${item.original_filename}</span>
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-slate-500 text-sm tabular-nums">
+                    ${formatDuration(item.duration_seconds)}
+                </td>
+                <td class="px-6 py-4 text-slate-500 text-sm tabular-nums">
+                    ${formatSize(item.file_size_bytes)}
+                </td>
+                <td class="px-6 py-4 text-slate-500 text-sm">
+                    ${new Date(item.uploaded_at).toLocaleString()}
+                </td>
+                <td class="px-6 py-4 text-right relative">
+                    <button onclick="App.claimSharedQueueItem('${item.id}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-100 transition shadow-sm">
+                        Claim Audio
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+        return `
+        <div class="pl-64 min-h-screen bg-slate-50">
+            <div class="max-w-6xl mx-auto p-8">
+                <!-- Header -->
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-2xl font-semibold text-slate-900">Shared Audio Queue</h2>
+                    <button onclick="document.getElementById('sharedFileInput').click()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        Upload to Shared Queue
+                    </button>
+                    <input type="file" id="sharedFileInput" class="hidden" accept="audio/*,video/*" onchange="App.handleSharedQueueUpload(this)">
+                </div>
+
+                <div class="mb-6 bg-blue-50 border border-blue-200 rounded-md p-4 text-blue-800 text-sm flex items-start gap-3">
+                    <svg class="w-5 h-5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div>
+                        <p class="font-bold mb-1">How it works</p>
+                        <p>Upload files here to make them available to all team members. When you claim an audio file, it will be moved to your personal "My Files" dashboard for transcription, and will no longer be available in this shared queue.</p>
+                    </div>
+                </div>
+
+                <!-- Upload Status -->
+                <div id="sharedUploadArea" class="hidden mb-8 bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-pulse">
+                     <div class="flex items-center gap-4">
+                         <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                             <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                         </div>
+                         <div>
+                             <p class="font-medium text-slate-900" id="sharedUploadText">Uploading to shared queue...</p>
+                             <p class="text-sm text-slate-500">Please do not close this tab.</p>
+                         </div>
+                     </div>
+                </div>
+
+                <!-- File List -->
+                <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-visible min-h-[300px]">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-medium">
+                            <tr>
+                                <th class="px-4 py-3 w-12 text-center">#</th>
+                                <th class="px-6 py-3">Name</th>
+                                <th class="px-6 py-3">Duration</th>
+                                <th class="px-6 py-3">Size</th>
+                                <th class="px-6 py-3">Uploaded</th>
+                                <th class="px-6 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            ${items.length ? listHtml : `
+                                <tr><td colspan="6" class="px-6 py-12 text-center text-slate-400">No files currently in the shared queue.</td></tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        `;
+    },
 
     Dashboard: (view = 'dashboard') => {
         const title = view === 'trash' ? "Trash" : "My Files";

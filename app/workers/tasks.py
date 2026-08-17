@@ -53,9 +53,9 @@ def get_audio_duration_ffprobe(file_path: str) -> float:
 
 @celery_app.task(name="app.workers.tasks.process_audio", bind=True)
 def process_audio(self, job_id: str):
-    process_audio_file(job_id)
+    process_audio_file(job_id, task_id=self.request.id)
 
-def process_audio_file(job_id: str):
+def process_audio_file(job_id: str, task_id: str = None):
     db = SessionLocal()
     job = db.query(Job).filter(Job.id == job_id).first()
     
@@ -67,9 +67,13 @@ def process_audio_file(job_id: str):
     normalized_path = None       # Track the normalized mp3 file
     input_path = None
     try:
+        from datetime import datetime, timezone
         # 1. Update Status -> PROCESSING
         print(f"Starting Job {job_id}")
         job.status = JobStatus.PROCESSING.value
+        job.started_at = datetime.now(timezone.utc)
+        if task_id:
+            job.celery_task_id = task_id
         db.commit()
 
         # 2. Get Local Path (Download if GCS/S3, Get Path if Local)
@@ -168,6 +172,7 @@ def process_audio_file(job_id: str):
         
         # 8. Complete Job
         job.status = JobStatus.COMPLETED.value
+        job.completed_at = datetime.now(timezone.utc)
         # Use duration from metadata (calculated in service or from segments)
         raw_duration = transcription_result["metadata"].get("duration", 0)
         job.duration_seconds = int(parse_time_value(raw_duration)) if raw_duration else 0
@@ -184,6 +189,7 @@ def process_audio_file(job_id: str):
         print(f"Job {job_id} Failed: {e}")
         db.rollback()
         job.status = JobStatus.FAILED.value
+        job.completed_at = datetime.now(timezone.utc)
         job.error_message = str(e)
         db.commit()
         
