@@ -9,12 +9,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #cbd5e1; /* slate-300 */
+    background: #9FB3C8; /* slate-300 */
     border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8; /* slate-400 */
+    background: #829AB1; /* slate-400 */
 }
 
 /* Audio Player Range Slider Customization */
@@ -28,7 +28,7 @@ input[type=range]::-webkit-slider-thumb {
     height: 16px;
     width: 16px;
     border-radius: 50%;
-    background: #2563EB; /* blue-600 */
+    background: #0066FF; /* blue-600 */
     cursor: pointer;
     margin-top: -6px;
 }
@@ -36,7 +36,7 @@ input[type=range]::-webkit-slider-thumb {
 input[type=range]::-webkit-slider-runnable-track {
     width: 100%;
     height: 4px;
-    background: #e2e8f0; /* slate-200 */
+    background: #BCCCDC; /* slate-200 */
     border-radius: 2px;
 }
 
@@ -74,13 +74,13 @@ input[type=range]::-webkit-slider-runnable-track {
         0 12px 40px rgba(0, 0, 0, 0.12),
         0 4px 12px rgba(0, 0, 0, 0.06),
         inset 0 1px 0 rgba(255, 255, 255, 0.7);
-    border-color: rgba(96, 165, 250, 0.3);
+    border-color: rgba(102, 163, 255, 0.3);
 }
 
 .audio-player-slab:focus-within {
-    border-color: rgba(59, 130, 246, 0.4);
+    border-color: rgba(51, 133, 255, 0.4);
     box-shadow:
-        0 12px 40px rgba(59, 130, 246, 0.08),
+        0 12px 40px rgba(51, 133, 255, 0.08),
         0 4px 12px rgba(0, 0, 0, 0.06),
         inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
@@ -96,7 +96,7 @@ input[type=range]::-webkit-slider-runnable-track {
 .audio-time-label {
     font-size: 11px;
     font-weight: 600;
-    color: #64748b;
+    color: #627D98;
     font-variant-numeric: tabular-nums;
     min-width: 36px;
     text-align: center;
@@ -116,7 +116,7 @@ input[type=range]::-webkit-slider-runnable-track {
 .audio-seek-bar::-webkit-slider-runnable-track {
     width: 100%;
     height: 5px;
-    background: linear-gradient(to right, #e2e8f0, #e2e8f0);
+    background: linear-gradient(to right, #BCCCDC, #BCCCDC);
     border-radius: 4px;
     transition: height 0.15s ease;
 }
@@ -130,16 +130,16 @@ input[type=range]::-webkit-slider-runnable-track {
     height: 14px;
     width: 14px;
     border-radius: 50%;
-    background: #2563eb;
+    background: #0066FF;
     cursor: pointer;
     margin-top: -5px;
-    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 1px 4px rgba(0, 102, 255, 0.3);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .audio-seek-bar:hover::-webkit-slider-thumb {
     transform: scale(1.2);
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 102, 255, 0.4);
 }
 
 /* Controls Row */
@@ -159,14 +159,14 @@ input[type=range]::-webkit-slider-runnable-track {
     border-radius: 8px;
     border: none;
     background: transparent;
-    color: #475569;
+    color: #486581;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .audio-ctrl-btn:hover {
     background: rgba(241, 245, 249, 0.8);
-    color: #1e293b;
+    color: #102A43;
     transform: scale(1.05);
 }
 
@@ -184,18 +184,18 @@ input[type=range]::-webkit-slider-runnable-track {
     height: 44px;
     border-radius: 50%;
     border: none;
-    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    background: linear-gradient(135deg, #0066FF, #3385FF);
     color: white;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 102, 255, 0.3);
     margin: 0 4px;
 }
 
 .audio-play-btn:hover {
-    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    background: linear-gradient(135deg, #0052CC, #0066FF);
     transform: scale(1.08);
-    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 102, 255, 0.4);
 }
 
 .audio-play-btn:active {
@@ -211,7 +211,7 @@ input[type=range]::-webkit-slider-runnable-track {
     padding: 2px 8px;
     font-size: 11px;
     font-weight: 700;
-    color: #64748b;
+    color: #627D98;
     background: rgba(241, 245, 249, 0.7);
     border: 1px solid rgba(203, 213, 225, 0.5);
     border-radius: 6px;
@@ -221,9 +221,9 @@ input[type=range]::-webkit-slider-runnable-track {
 }
 
 .audio-speed-badge--active {
-    color: #2563eb;
-    background: rgba(219, 234, 254, 0.6);
-    border-color: rgba(147, 197, 253, 0.5);
+    color: #0066FF;
+    background: rgba(230, 240, 255, 0.6);
+    border-color: rgba(153, 194, 255, 0.5);
 }
 
 /* Divider */
@@ -237,7 +237,7 @@ input[type=range]::-webkit-slider-runnable-track {
 /* Keyboard hint */
 .audio-hint {
     font-size: 10px;
-    color: #94a3b8;
+    color: #829AB1;
     font-weight: 500;
     white-space: nowrap;
     margin-left: 4px;
@@ -259,16 +259,16 @@ input[type=range]::-webkit-slider-runnable-track {
 }
 
 .transcript-editable-area.editing-active {
-    background: rgba(239, 246, 255, 0.3);
-    box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.15);
+    background: rgba(240, 244, 248, 0.3);
+    box-shadow: inset 0 0 0 2px rgba(51, 133, 255, 0.15);
     padding: 8px;
     margin: -8px;
     cursor: text;
 }
 
 .transcript-editable-area.editing-active:focus {
-    box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.3);
-    background: rgba(239, 246, 255, 0.5);
+    box-shadow: inset 0 0 0 2px rgba(51, 133, 255, 0.3);
+    background: rgba(240, 244, 248, 0.5);
 }
 
 /* =====================================================
@@ -286,7 +286,7 @@ input[type=range]::-webkit-slider-runnable-track {
     align-items: center;
     justify-content: center;
     cursor: grab;
-    color: #cbd5e1;
+    color: #9FB3C8;
     border-radius: 4px;
     transition: color 0.15s ease, background 0.15s ease;
     user-select: none;
@@ -294,13 +294,13 @@ input[type=range]::-webkit-slider-runnable-track {
 }
 
 .audio-drag-handle:hover {
-    color: #64748b;
+    color: #627D98;
     background: rgba(241, 245, 249, 0.8);
 }
 
 .audio-drag-handle:active {
     cursor: grabbing;
-    color: #2563eb;
+    color: #0066FF;
 }
 
 .audio-player-slab {
@@ -359,13 +359,13 @@ input[type=range]::-webkit-slider-runnable-track {
 }
 
 .activity-bar--upload {
-    background: linear-gradient(180deg, #3b82f6, #60a5fa);
-    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+    background: linear-gradient(180deg, #3385FF, #66A3FF);
+    box-shadow: 0 2px 6px rgba(51, 133, 255, 0.2);
 }
 
 .activity-bar--complete {
-    background: linear-gradient(180deg, #10b981, #34d399);
-    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
+    background: linear-gradient(180deg, #DC143C, #E84776);
+    box-shadow: 0 2px 6px rgba(220, 20, 60, 0.2);
 }
 
 .activity-bar:hover {
@@ -386,14 +386,14 @@ input[type=range]::-webkit-slider-runnable-track {
 .activity-bar-label {
     font-size: 10px;
     font-weight: 600;
-    color: #94a3b8;
+    color: #829AB1;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     user-select: none;
 }
 
 .activity-bar-label--today {
-    color: #2563eb;
+    color: #0066FF;
     font-weight: 700;
 }
 
