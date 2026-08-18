@@ -94,16 +94,45 @@ class StorageService:
     
     def download_to_temp(self, relative_path: str) -> str:
         import tempfile
+        import urllib.request
+        from urllib.parse import urlparse
+
         ext = relative_path.split('.')[-1] if '.' in relative_path else "bin"
+        ext = ext.split('?')[0] # Clean query params if it's a URL
+        
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}")
         tmp.close() # Close so we can write to it via SDK
         
+        if relative_path.startswith("http://") or relative_path.startswith("https://"):
+            try:
+                req = urllib.request.Request(
+                    relative_path,
+                    headers={'User-Agent': 'TunAIde/1.0'}
+                )
+                with urllib.request.urlopen(req) as response, open(tmp.name, 'wb') as out_file:
+                    out_file.write(response.read())
+                return tmp.name
+            except Exception as e:
+                print(f"Error downloading HTTP URL {relative_path}: {e}")
+                raise
+                
+        elif relative_path.startswith("s3://"):
+            parsed = urlparse(relative_path)
+            bucket = parsed.netloc
+            key = parsed.path.lstrip('/')
+            self.s3_client.download_file(bucket, key, tmp.name)
+            return tmp.name
+        
         if self.mode == "S3":
-            self.s3_client.download_file(self.s3_bucket_name, relative_path, tmp.name)
+            # Just in case there is a leading slash causing a 404 on AWS/Minio
+            s3_key = relative_path.lstrip('/')
+            self.s3_client.download_file(self.s3_bucket_name, s3_key, tmp.name)
             return tmp.name
             
         elif self.mode == "GCS":
-            blob = self.bucket.blob(relative_path)
+            # GCS doesn't typically mind leading slashes, but good to be consistent
+            gcs_key = relative_path.lstrip('/')
+            blob = self.bucket.blob(gcs_key)
             blob.download_to_filename(tmp.name)
             return tmp.name
 
