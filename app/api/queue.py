@@ -24,10 +24,12 @@ def list_queue_items(
     total = query.count()
     items = query.order_by(AudioQueueItem.uploaded_at.desc()).offset(skip).limit(limit).all()
     
-    return {
-        "items": items,
-        "total": total
-    }
+    validated_items = [AudioQueueItemResponse.model_validate(item) for item in items]
+    
+    return AudioQueueListResponse(
+        items=validated_items,
+        total=total
+    )
 
 @router.get("/{queue_item_id}", response_model=AudioQueueItemResponse)
 def get_queue_item(
