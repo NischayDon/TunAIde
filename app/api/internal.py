@@ -28,7 +28,6 @@ def verify_ingest_token(credentials: HTTPAuthorizationCredentials = Depends(secu
 class APIngestPayload(BaseModel):
     source: str
     source_upload_id: str
-    storage_provider: str
     storage_key: str
     filename: str
     file_size: int
@@ -68,7 +67,6 @@ def ingest_audio(
             note=payload.note,
             original_filename=payload.filename,
             storage_path=payload.storage_key,
-            storage_provider=payload.storage_provider,
             file_size_bytes=payload.file_size,
             mime_type=payload.mime_type,
             duration_seconds=payload.duration,

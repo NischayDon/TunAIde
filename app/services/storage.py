@@ -92,7 +92,7 @@ class StorageService:
         # Remote paths are just their keys/names
         return relative_path
     
-    def download_to_temp(self, relative_path: str, provider: str = None) -> str:
+    def download_to_temp(self, relative_path: str) -> str:
         import tempfile
         import urllib.request
         from urllib.parse import urlparse
@@ -103,33 +103,6 @@ class StorageService:
         
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}")
         tmp.close() # Close so we can write to it via SDK
-        
-        if provider == "emergent":
-            if not settings.EMERGENT_LLM_KEY or not settings.STORAGE_BASE:
-                raise RuntimeError("Emergent storage provider requested but EMERGENT_LLM_KEY or STORAGE_BASE is not configured.")
-            try:
-                storage_url = settings.STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
-                # Initialize storage to get temporary key
-                resp = requests.post(f"{storage_url}/init", json={"emergent_key": settings.EMERGENT_LLM_KEY}, timeout=30)
-                resp.raise_for_status()
-                x_storage_key = resp.json()["storage_key"]
-                
-                # Download object
-                dl_resp = requests.get(
-                    f"{storage_url}/objects/{relative_path}",
-                    headers={"X-Storage-Key": x_storage_key},
-                    timeout=120
-                )
-                if dl_resp.status_code == 404:
-                    raise FileNotFoundError(f"StorageService (emergent): Object '{relative_path}' not found (404)")
-                dl_resp.raise_for_status()
-                
-                with open(tmp.name, 'wb') as out_file:
-                    out_file.write(dl_resp.content)
-                return tmp.name
-            except Exception as e:
-                print(f"Error downloading from emergent storage: {e}")
-                raise
         
         if relative_path.startswith("http://") or relative_path.startswith("https://"):
             try:

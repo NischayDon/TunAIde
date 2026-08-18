@@ -111,7 +111,6 @@ def claim_queue_item(
             user_id=user.id,
             original_filename=item.original_filename,
             storage_path=item.storage_path, # Copied for convenience
-            storage_provider=item.storage_provider,
             queue_item_id=item.id,
             status=JobStatus.QUEUED.value,
             login_date=datetime.now(timezone.utc)
