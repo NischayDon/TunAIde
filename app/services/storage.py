@@ -126,8 +126,27 @@ class StorageService:
         if self.mode == "S3":
             # Just in case there is a leading slash causing a 404 on AWS/Minio
             s3_key = relative_path.lstrip('/')
-            self.s3_client.download_file(self.s3_bucket_name, s3_key, tmp.name)
-            return tmp.name
+            try:
+                self.s3_client.download_file(self.s3_bucket_name, s3_key, tmp.name)
+                return tmp.name
+            except ClientError as e:
+                error_code = e.response.get('Error', {}).get('Code')
+                if error_code == '404':
+                    import os
+                    basename = os.path.basename(s3_key)
+                    print(f"StorageService: Key '{s3_key}' not found in bucket '{self.s3_bucket_name}'. Searching for fallback match...")
+                    try:
+                        paginator = self.s3_client.get_paginator('list_objects_v2')
+                        for page in paginator.paginate(Bucket=self.s3_bucket_name):
+                            for obj in page.get('Contents', []):
+                                if obj['Key'].endswith(basename) or s3_key in obj['Key']:
+                                    print(f"StorageService: Found fallback match: '{obj['Key']}'. Downloading...")
+                                    self.s3_client.download_file(self.s3_bucket_name, obj['Key'], tmp.name)
+                                    return tmp.name
+                    except Exception as search_e:
+                        print(f"StorageService: Fallback search failed: {search_e}")
+                        
+                raise RuntimeError(f"StorageService: Failed to download '{relative_path}' from S3 bucket '{self.s3_bucket_name}'. Error: {e}")
             
         elif self.mode == "GCS":
             # GCS doesn't typically mind leading slashes, but good to be consistent
