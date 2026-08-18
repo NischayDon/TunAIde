@@ -78,10 +78,10 @@ def process_audio_file(job_id: str, task_id: str = None):
 
         # 2. Get Local Path (Download if GCS/S3, Get Path if Local)
         try:
-            input_path = storage_service.download_to_temp(job.storage_path)
+            input_path = storage_service.download_to_temp(job.storage_path, provider=job.storage_provider)
             original_input_path = input_path
         except Exception as e:
-            raise FileNotFoundError(f"Failed to retrieve file: {e}")
+            raise FileNotFoundError(f"Failed to retrieve file from storage provider '{job.storage_provider}': {e}")
 
         print(f"Processing file: {input_path}")
         
@@ -192,6 +192,7 @@ def process_audio_file(job_id: str, task_id: str = None):
         job.completed_at = datetime.now(timezone.utc)
         job.error_message = str(e)
         db.commit()
+        raise  # Re-raise so Celery marks task as failed instead of succeeded
         
     finally:
         # Cleanup temp files (storage is always remote — S3 or GCS)

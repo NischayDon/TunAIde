@@ -68,6 +68,7 @@ def ingest_audio(
             note=payload.note,
             original_filename=payload.filename,
             storage_path=payload.storage_key,
+            storage_provider=payload.storage_provider,
             file_size_bytes=payload.file_size,
             mime_type=payload.mime_type,
             duration_seconds=payload.duration,

@@ -55,6 +55,7 @@ class AudioQueueItem(Base):
     note = Column(String, nullable=True)
     original_filename = Column(String, nullable=False)
     storage_path = Column(String, nullable=False)
+    storage_provider = Column(String, nullable=True)
     file_size_bytes = Column(BigInteger, nullable=True)
     mime_type = Column(String, nullable=True)
     duration_seconds = Column(Integer, nullable=True)
@@ -79,6 +80,7 @@ class Job(Base):
     status = Column(String, default=JobStatus.UPLOADED.value) # Storing as string for simplicity with SQLite/PG compat
     original_filename = Column(String, nullable=False)
     storage_path = Column(String, nullable=False) # S3 Key
+    storage_provider = Column(String, nullable=True)
     
     duration_seconds = Column(Integer, nullable=True)
     file_size_bytes = Column(BigInteger, nullable=True)

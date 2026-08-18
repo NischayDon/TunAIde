@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     
     # Internal Service Authentication
     PHASE_ONE_INGEST_TOKEN: str = ""
+    
+    # Emergent Storage (for AP ingested files)
+    EMERGENT_LLM_KEY: str = ""
+    STORAGE_BASE: str = "https://integrations.emergentagent.com"
 
     # Email (FastAPI-Mail)
     MAIL_USERNAME: str = ""
