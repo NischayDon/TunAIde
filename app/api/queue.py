@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, Request
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
+import os
 from typing import List, Optional
 from datetime import datetime, timezone
 
@@ -139,3 +141,137 @@ def claim_queue_item(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to claim item: {str(e)}")
+
+@router.get("/{queue_item_id}/audio")
+def stream_audio(
+    queue_item_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Stream the original uploaded audio file for browser playback."""
+    item = db.query(AudioQueueItem).filter(
+        AudioQueueItem.id == queue_item_id,
+        AudioQueueItem.status == AudioQueueStatus.AVAILABLE.value
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Queue item not found")
+    
+    try:
+        file_path = storage_service.download_to_temp(item.storage_path)
+    except Exception as e:
+        print(f"Failed to download audio for streaming: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load audio file")
+    
+    ext = item.original_filename.rsplit(".", 1)[-1].lower() if "." in item.original_filename else "bin"
+    audio_mime_map = {
+        "mp3": "audio/mpeg",
+        "wav": "audio/wav",
+        "ogg": "audio/ogg",
+        "flac": "audio/flac",
+        "aac": "audio/aac",
+        "m4a": "audio/mp4",
+        "wma": "audio/x-ms-wma",
+        "webm": "audio/webm",
+        "mp4": "video/mp4",
+        "mkv": "video/x-matroska",
+        "avi": "video/x-msvideo",
+        "mov": "video/quicktime",
+    }
+    media_type = audio_mime_map.get(ext, item.mime_type or "application/octet-stream")
+    
+    file_size = os.path.getsize(file_path)
+    
+    range_header = request.headers.get("range")
+    if range_header:
+        range_spec = range_header.replace("bytes=", "")
+        parts = range_spec.split("-")
+        start = int(parts[0]) if parts[0] else 0
+        end = int(parts[1]) if parts[1] else file_size - 1
+        
+        if start >= file_size:
+            raise HTTPException(status_code=416, detail="Range not satisfiable")
+        
+        end = min(end, file_size - 1)
+        content_length = end - start + 1
+        
+        def iter_range():
+            with open(file_path, "rb") as f:
+                f.seek(start)
+                remaining = content_length
+                while remaining > 0:
+                    chunk_size = min(8192, remaining)
+                    data = f.read(chunk_size)
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    yield data
+        
+        return Response(
+            content=b"".join(iter_range()),
+            status_code=206,
+            media_type=media_type,
+            headers={
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(content_length),
+            }
+        )
+    else:
+        def iterfile():
+            with open(file_path, "rb") as f:
+                yield from f
+        
+        return StreamingResponse(
+            iterfile(),
+            media_type=media_type,
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(file_size),
+            }
+        )
+
+@router.get("/{queue_item_id}/download")
+def download_queue_item(
+    queue_item_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    item = db.query(AudioQueueItem).filter(
+        AudioQueueItem.id == queue_item_id,
+        AudioQueueItem.status == AudioQueueStatus.AVAILABLE.value
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Queue item not found")
+    
+    try:
+        file_path = storage_service.download_to_temp(item.storage_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to load audio file")
+        
+    ext = item.original_filename.rsplit(".", 1)[-1].lower() if "." in item.original_filename else "bin"
+    audio_mime_map = {
+        "mp3": "audio/mpeg",
+        "wav": "audio/wav",
+        "ogg": "audio/ogg",
+        "flac": "audio/flac",
+        "aac": "audio/aac",
+        "m4a": "audio/mp4",
+        "wma": "audio/x-ms-wma",
+        "webm": "audio/webm",
+        "mp4": "video/mp4",
+        "mkv": "video/x-matroska",
+        "avi": "video/x-msvideo",
+        "mov": "video/quicktime",
+    }
+    media_type = audio_mime_map.get(ext, item.mime_type or "application/octet-stream")
+
+    def iterfile():
+        with open(file_path, "rb") as f:
+            yield from f
+
+    return StreamingResponse(
+        iterfile(),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={item.original_filename}"}
+    )

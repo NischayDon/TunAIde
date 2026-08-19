@@ -7,7 +7,6 @@ const App = {
         token: localStorage.getItem('access_token'),
         user: JSON.parse(localStorage.getItem('user_info') || 'null'),
         adminStats: [],
-        showTimestamps: false,
         isEditing: false,
         audioPlaybackRate: 1.0,
         lifetimeStats: null,
@@ -595,16 +594,8 @@ const App = {
     renderTranscript: () => {
         const titleEl = document.getElementById('transcriptTitle');
         const contentEl = document.getElementById('transcriptContent');
-        const toggleBtn = document.getElementById('timestampToggleInfo');
-
         if (!App.state.currentJob) return;
         if (titleEl) titleEl.textContent = App.state.currentJob.original_filename;
-
-        // Update toggle text state if it exists
-        if (toggleBtn) {
-            toggleBtn.textContent = App.state.showTimestamps ? "On" : "Off";
-            toggleBtn.className = App.state.showTimestamps ? "font-semibold text-blue-600" : "font-semibold text-slate-500";
-        }
 
         const statusEl = document.getElementById('transcriptMetaStatus');
 
@@ -627,53 +618,20 @@ const App = {
 
             // 1. If we have structured segments, render the appropriate version
             if (hasSegments) {
-                if (App.state.showTimestamps) {
-                    // VERSION A: With Timestamps (Citation Style)
-                    const segmentsHtml = job.json_metadata.segments.map(seg =>
-                        `<span class="inline-block bg-slate-100 text-slate-500 rounded px-1 text-xs font-mono mr-1 select-none align-middle" title="${seg.start} - ${seg.end}">[${seg.start}]</span><span>${seg.text}</span>`
-                    ).join(' '); // Join with space for flow
-
-                    htmlContent = `<div class="leading-relaxed text-slate-800">${segmentsHtml}</div>`;
-                } else {
-                    // VERSION B: Plain Text (Clean)
-                    const cleanText = job.json_metadata.segments.map(seg => seg.text).join(' ');
-                    htmlContent = `<div class="leading-relaxed text-slate-800">${cleanText}</div>`;
-                }
+                // VERSION B: Plain Text (Clean)
+                const cleanText = job.json_metadata.segments.map(seg => seg.text).join(' ');
+                htmlContent = `<div class="leading-relaxed text-slate-800">${cleanText}</div>`;
             }
             // 2. Fallback if no metadata (Old files or Parse Error)
             else {
                 const text = job.text_content || "";
                 const paragraphs = text.split('\n').filter(p => p.trim() !== '');
 
-                // WARNING BANNER if user wants timestamps but we can't show them
-                let warning = '';
-                if (App.state.showTimestamps) {
-                    warning = `
-                        <div class="bg-amber-50 border border-amber-200 rounded-md p-4 mb-6 text-amber-800 text-sm flex items-start gap-3">
-                            <svg class="w-5 h-5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                            <div>
-                                <p class="font-bold">Timestamps Unavailable</p>
-                                <p>This file does not have timestamp data. This happens if:</p>
-                                <ul class="list-disc ml-4 mt-1 space-y-1">
-                                    <li>It is an old file (upload a new one).</li>
-                                    <li>The AI failed to generate timestamps (check logs).</li>
-                                    <li>You are using an API Key that doesn't support this.</li>
-                                </ul>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                htmlContent = warning + paragraphs.map(p => `<p class="mb-4">${p}</p>`).join('');
+                htmlContent = paragraphs.map(p => `<p class="mb-4">${p}</p>`).join('');
             }
 
             contentEl.innerHTML = htmlContent;
         }
-    },
-
-    toggleTimestamps: () => {
-        App.state.showTimestamps = !App.state.showTimestamps;
-        App.renderTranscript();
     },
 
     toggleDownloadModal: (show = true) => {
@@ -684,12 +642,12 @@ const App = {
         }
     },
 
-    downloadTranscript: async (includeTimestamps) => {
+    downloadTranscript: async () => {
         if (!App.state.currentJob) return;
         const jobId = App.state.currentJob.id;
 
         try {
-            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/download?include_timestamps=${includeTimestamps}`);
+            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/download`);
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -722,7 +680,7 @@ const App = {
         }
     },
 
-    sendEmail: async (email, includeTimestamps) => {
+    sendEmail: async (email) => {
         if (!App.state.currentJob) return;
         const jobId = App.state.currentJob.id;
         const btn = document.getElementById('sendEmailBtn');
@@ -737,7 +695,7 @@ const App = {
             const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, include_timestamps: includeTimestamps })
+                body: JSON.stringify({ email })
             });
 
             if (res.ok) {
@@ -1302,6 +1260,65 @@ const App = {
         } catch (e) {
             console.error('Save transcript error:', e);
             alert('Failed to save transcript');
+        }
+    },
+
+    playSharedAudio: async (queueItemId, filename) => {
+        if (App._sharedAudio && App._currentPlayingSharedId === queueItemId) {
+            if (!App._sharedAudio.paused) {
+                App._sharedAudio.pause();
+                return;
+            } else {
+                App._sharedAudio.play();
+                return;
+            }
+        }
+
+        if (App._sharedAudio) {
+            App._sharedAudio.pause();
+            App._sharedAudio = null;
+        }
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/queue/${queueItemId}/audio`);
+            if (res.ok) {
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                App._sharedAudio = new Audio(blobUrl);
+                App._currentPlayingSharedId = queueItemId;
+                App._sharedAudio.play();
+                
+                App._sharedAudio.onended = () => {
+                    App._currentPlayingSharedId = null;
+                };
+            } else {
+                alert("Failed to load audio");
+            }
+        } catch (e) {
+            console.error("Playback error", e);
+            alert("Playback failed");
+        }
+    },
+
+    downloadSharedAudio: async (queueItemId, filename) => {
+        try {
+            const res = await App.authFetch(`${App.API_URL}/queue/${queueItemId}/download`);
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+            } else {
+                alert("Download failed");
+            }
+        } catch (e) {
+            console.error("Download error", e);
+            alert("Download failed");
         }
     }
 };

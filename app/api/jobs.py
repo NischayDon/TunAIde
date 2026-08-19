@@ -37,12 +37,11 @@ conf = ConnectionConfig(
 
 class EmailRequest(BaseModel):
     email: EmailStr
-    include_timestamps: bool = False
 
 class TranscriptUpdateRequest(BaseModel):
     text_content: str
 
-def generate_docx(job: Job, include_timestamps: bool) -> BytesIO:
+def generate_docx(job: Job) -> BytesIO:
     document = Document()
     document.add_heading(job.original_filename, 0)
     
@@ -54,16 +53,7 @@ def generate_docx(job: Job, include_timestamps: bool) -> BytesIO:
     if segments:
         for seg in segments:
             text = seg.get("text", "")
-            if include_timestamps:
-                start = seg.get("start")
-                end = seg.get("end")
-                p = document.add_paragraph()
-                # Bold timestamp
-                timestamp_run = p.add_run(f"[{start} - {end}] ")
-                timestamp_run.bold = True
-                p.add_run(text)
-            else:
-                document.add_paragraph(text)
+            document.add_paragraph(text)
     else:
         # Fallback to plain text if no segments available
         text_content = job.transcript.text_content or ""
@@ -359,10 +349,7 @@ async def email_job(
         # Generate plain text body
         if job.transcript.json_metadata and "segments" in job.transcript.json_metadata:
             segments = job.transcript.json_metadata["segments"]
-            if email_req.include_timestamps:
-                body_text = "\n".join([f"[{s['start']} - {s['end']}] {s['text']}" for s in segments])
-            else:
-                body_text = "\n".join([s['text'] for s in segments])
+            body_text = "\n".join([s['text'] for s in segments])
         else:
             # Fallback
             body_text = job.transcript.text_content or "No transcript available."
@@ -385,7 +372,6 @@ async def email_job(
 @router.get("/{job_id}/download")
 def download_job(
     job_id: str,
-    include_timestamps: bool = False,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
@@ -396,7 +382,7 @@ def download_job(
     if not job.transcript:
         raise HTTPException(status_code=400, detail="Transcript not ready")
         
-    buffer = generate_docx(job, include_timestamps)
+    buffer = generate_docx(job)
     filename = f"{job.original_filename}.docx"
     
     return StreamingResponse(

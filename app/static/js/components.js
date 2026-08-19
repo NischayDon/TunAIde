@@ -308,9 +308,17 @@ const Components = {
                     ${new Date(item.uploaded_at).toLocaleString()}
                 </td>
                 <td class="px-6 py-4 text-right relative">
-                    <button onclick="App.claimSharedQueueItem('${item.id}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-100 transition shadow-sm">
-                        Claim Audio
-                    </button>
+                    <div class="flex items-center justify-end gap-2">
+                        <button onclick="App.playSharedAudio('${item.id}', '${item.original_filename.replace(/'/g, "\\'")}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition" title="Play">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+                        </button>
+                        <button onclick="App.downloadSharedAudio('${item.id}', '${item.original_filename.replace(/'/g, "\\'")}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition" title="Download">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        </button>
+                        <button onclick="App.claimSharedQueueItem('${item.id}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-100 transition shadow-sm">
+                            Claim Audio
+                        </button>
+                    </div>
                 </td>
             </tr>
         `).join('');
@@ -480,11 +488,7 @@ const Components = {
                 </div>
                 <div class="flex items-center gap-4">
                     <div id="transcriptMetaStatus" class="text-xs text-slate-400 px-2 border-r border-slate-200"></div>
-                    <button onclick="App.toggleTimestamps()" class="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
-                        <span>Timestamps:</span>
-                        <span id="timestampToggleInfo" class="font-semibold text-slate-500">Off</span>
-                    </button>
-                    <div class="h-6 w-px bg-slate-200"></div>
+
                      <button onclick="App.toggleEmailModal(true)" class="text-slate-600 hover:text-slate-900 px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-md hover:bg-slate-50">
                         Email
                     </button>
@@ -580,19 +584,13 @@ const Components = {
                 <div class="bg-white rounded-lg shadow-xl border border-slate-200 p-6 w-full max-w-sm" onclick="event.stopPropagation()">
                     <h3 class="text-lg font-semibold text-slate-900 mb-4">Download Transcript</h3>
                     
-                    <div class="mb-6 space-y-3">
-                        <p class="text-sm text-slate-500 mb-2">Select options for your DOCX download:</p>
-                        <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-md cursor-pointer hover:bg-slate-50 transition">
-                            <input type="checkbox" id="downloadTimestamps" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
-                            <span class="text-sm font-medium text-slate-700">Include Timestamps</span>
-                        </label>
-                    </div>
+
 
                     <div class="flex items-center justify-end gap-3">
                         <button onclick="App.toggleDownloadModal(false)" class="text-slate-600 hover:text-slate-900 text-sm font-medium px-4 py-2">
                             Cancel
                         </button>
-                        <button onclick="App.downloadTranscript(document.getElementById('downloadTimestamps').checked)" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition">
+                        <button onclick="App.downloadTranscript()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition">
                             Download DOCX
                         </button>
                     </div>
@@ -608,17 +606,14 @@ const Components = {
                             <label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
                             <input type="email" id="emailInput" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="recipient@example.com">
                         </div>
-                        <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-md cursor-pointer hover:bg-slate-50 transition">
-                            <input type="checkbox" id="emailTimestamps" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
-                            <span class="text-sm font-medium text-slate-700">Include Timestamps</span>
-                        </label>
+
                     </div>
 
                     <div class="flex items-center justify-end gap-3">
                         <button onclick="App.toggleEmailModal(false)" class="text-slate-600 hover:text-slate-900 text-sm font-medium px-4 py-2">
                             Cancel
                         </button>
-                        <button id="sendEmailBtn" onclick="App.sendEmail(document.getElementById('emailInput').value, document.getElementById('emailTimestamps').checked)" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition">
+                        <button id="sendEmailBtn" onclick="App.sendEmail(document.getElementById('emailInput').value)" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition">
                             Send Email
                         </button>
                     </div>

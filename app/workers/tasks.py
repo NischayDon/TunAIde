@@ -7,7 +7,6 @@ from app.db.base import SessionLocal
 from app.db.models import Job, JobStatus, Transcript, User
 from app.core.config import settings
 from app.services.transcription import transcription_service
-from app.services.timestamp_agent import timestamp_agent
 from app.services.storage import storage_service
 
 import wave
@@ -114,17 +113,6 @@ def process_audio_file(job_id: str, task_id: str = None):
         # Pass input_path directly
         transcription_result = transcription_service.transcribe_audio(input_path)
         
-        # 5. Generate Timestamps via Gemini Agent
-        print("Generating timestamps with Gemini agent...")
-        segments = timestamp_agent.generate_timestamps(input_path, transcription_result["text"])
-        if segments:
-            transcription_result["metadata"]["segments"] = segments
-            # Compute duration from the last segment's end time (handles string timestamps)
-            last_end = max((parse_time_value(s.get("end", 0)) for s in segments), default=0)
-            if last_end > 0:
-                transcription_result["metadata"]["duration"] = last_end
-        else:
-            print("Warning: Gemini failed to generate timestamps. Falling back to text-only.")
         
         # Fallback: use ffprobe if we still have no duration
         if not transcription_result["metadata"].get("duration"):
