@@ -4,7 +4,7 @@ const Components = {
             <div class="max-w-md w-full bg-white rounded-lg shadow-sm border border-slate-200 p-8">
                 <div class="text-center mb-8">
                     <h1 class="text-2xl font-bold text-slate-900 flex items-center justify-center gap-2">
-                        <img src="/static/img/logo.png" alt="TunAIde Logo" class="h-8">
+                        <img src="/static/img/logo.png" alt="TunAIde Logo" class="h-16">
                     </h1>
                     <p class="text-slate-500 text-sm mt-2">Sign in to your account</p>
                 </div>
@@ -87,7 +87,7 @@ const Components = {
                                     <td class="px-6 py-4 font-medium text-slate-900">${u.username}</td>
                                     <td class="px-6 py-4 text-right tabular-nums">${u.upload_count}</td>
                                     <td class="px-6 py-4 text-right tabular-nums">${u.transcribed_minutes.toFixed(2)}</td>
-                                    <td class="px-6 py-4 text-right text-slate-500 text-sm">${u.last_login ? new Date(u.last_login).toLocaleString() : '-'}</td>
+                                    <td class="px-6 py-4 text-right text-slate-500 text-sm">${u.last_login ? new Date(u.last_login).toLocaleString('en-GB', { timeZone: 'Europe/Paris' }) : '-'}</td>
                                     <td class="px-6 py-4 text-right text-sm">
                                         ${(u.is_admin && u.username !== App.state.user.username) 
                                             ? '<span class="text-slate-400 italic">Cannot Reset</span>'
@@ -148,7 +148,7 @@ const Components = {
                                 <tr class="hover:bg-slate-50">
                                     <td class="px-6 py-4 font-medium text-slate-900">${u.username}</td>
                                     <td class="px-6 py-4 text-slate-500 text-sm">
-                                        ${u.last_login ? new Date(u.last_login).toLocaleDateString() : 'N/A'}
+                                        ${u.last_login ? new Date(u.last_login).toLocaleDateString('en-GB', { timeZone: 'Europe/Paris' }) : 'N/A'}
                                     </td>
                                     <td class="px-6 py-4 text-right">
                                         ${u.username === App.state.user.username ?
@@ -179,7 +179,7 @@ const Components = {
         console.log("Sidebar rendering for user:", user);
 
         const dashboardClass = activeView === 'dashboard'
-            ? "bg-blue-50 text-blue-700"
+            ? "myfiles-active"
             : "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
 
         const trashClass = activeView === 'trash'
@@ -207,9 +207,9 @@ const Components = {
 
         return `
         <div class="w-64 bg-white border-r border-slate-200 flex flex-col h-full fixed left-0 top-0 z-10 transition-all">
-            <div class="p-6">
+            <div class="p-6 flex items-center justify-center">
                 <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <img src="/static/img/logo.png" alt="TunAIde Logo" class="h-8">
+                    <img src="/static/img/logo.png" alt="TunAIde Logo" class="h-12">
                 </h1>
             </div>
             
@@ -303,7 +303,7 @@ const Components = {
                     ${formatSize(item.file_size_bytes)}
                 </td>
                 <td class="px-6 py-4 text-slate-500 text-sm">
-                    ${new Date(item.uploaded_at).toLocaleString()}
+                    ${new Date(item.uploaded_at).toLocaleString('en-GB', { timeZone: 'Europe/Paris' })}
                 </td>
                 <td class="px-6 py-4 text-right relative">
                     <div class="flex items-center justify-end gap-2">
@@ -313,7 +313,10 @@ const Components = {
                         <button onclick="App.downloadSharedAudio('${item.id}', '${item.original_filename.replace(/'/g, "\\'")}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition" title="Download">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         </button>
-                        <button onclick="App.claimSharedQueueItem('${item.id}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-100 transition shadow-sm">
+                        <button onclick="event.stopPropagation(); App.deleteSharedQueueItem('${item.id}')" class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition" title="Delete">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                        <button onclick="App.showClaimModal('${item.id}', '${item.original_filename.replace(/'/g, "\\'")}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-100 transition shadow-sm">
                             Claim Audio
                         </button>
                     </div>
@@ -374,6 +377,28 @@ const Components = {
                             `}
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Claim Audio Modal -->
+        <div id="claimModal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center backdrop-blur-sm" onclick="if(event.target === this) App.hideClaimModal()">
+            <div class="bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-sm" onclick="event.stopPropagation()">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-slate-900">Claim Audio</h3>
+                    <button onclick="App.hideClaimModal()" class="text-slate-400 hover:text-slate-600 transition p-1 hover:bg-slate-100 rounded-full">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <p class="text-sm text-slate-600 mb-6">Would you like to download the audio file while claiming it?</p>
+                <div class="space-y-3">
+                    <button onclick="App.claimWithDownload()" class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Claim & Download
+                    </button>
+                    <button onclick="App.claimWithoutDownload()" class="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-200 transition border border-slate-200">
+                        Claim Without Downloading
+                    </button>
                 </div>
             </div>
         </div>
@@ -651,6 +676,12 @@ const Components = {
                         <button onclick="event.stopPropagation(); App.restoreJob('${job.id}')" class="text-left w-full block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Restore</button>
                         <button onclick="event.stopPropagation(); App.deleteJobPermanent('${job.id}')" class="text-left w-full block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete Permanently</button>
                     ` : `
+                        <button onclick="event.stopPropagation(); App.downloadJobAudio('${job.id}', '${job.original_filename.replace(/'/g, "\\\'")}')" class="text-left w-full block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                Download Audio
+                            </span>
+                        </button>
                         <button onclick="event.stopPropagation(); App.deleteJob('${job.id}')" class="text-left w-full block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete</button>
                     `}
                 </div>
@@ -682,7 +713,7 @@ const Components = {
                     </div>
                 </td>
                 <td class="px-6 py-4 text-slate-500 text-sm">
-                    ${new Date(job.created_at).toLocaleDateString()}
+                    ${new Date(job.created_at).toLocaleDateString('en-GB', { timeZone: 'Europe/Paris' })}
                 </td>
                 <td class="px-6 py-4 text-right relative">
                     <button onclick="App.toggleActions(event, '${job.id}')" class="actions-menu-btn text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200 transition">
@@ -767,7 +798,7 @@ const Components = {
         // The user asked to "edit and add in these fields".
         const formatVal = (v) => v || '';
         const formatDate = (v) => v ? new Date(v).toISOString().split('T')[0] : '';
-        const formatDateTime = (v) => v ? new Date(v).toLocaleString() : '';
+        const formatDateTime = (v) => v ? new Date(v).toLocaleString('en-GB', { timeZone: 'Europe/Paris' }) : '';
 
         return `
             <tr class="hover:bg-blue-50/50 transition cursor-pointer group" onclick="if(!event.target.closest('input') && !event.target.closest('select')) App.openLedgerDetail('${job.id}')">
@@ -819,7 +850,7 @@ const Components = {
                     </button>
                     <div>
                         <h2 class="text-3xl font-bold text-slate-900 tracking-tight">${job.client_name || ''} ${job.client_surname || ''}</h2>
-                        <p class="text-slate-500 mt-1 font-medium">${job.service_type || 'No Service Type'} &middot; Uploaded ${new Date(job.login_date).toLocaleDateString()}</p>
+                        <p class="text-slate-500 mt-1 font-medium">${job.service_type || 'No Service Type'} &middot; Uploaded ${new Date(job.login_date).toLocaleDateString('en-GB', { timeZone: 'Europe/Paris' })}</p>
                     </div>
                 </div>
 
@@ -833,6 +864,11 @@ const Components = {
                         <button onclick="App.openTranscript('${job.id}')" class="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-slate-800 transition shadow-sm">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                             View Transcript
+                        </button>
+                        
+                        <button id="ledgerPlayBtn" onclick="App.toggleLedgerAudio('${job.id}')" class="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg font-medium hover:bg-blue-700 transition shadow-sm">
+                            <svg id="ledgerPlayIcon" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+                            <span id="ledgerPlayText">Play Audio</span>
                         </button>
                         
                         <button onclick="App.toggleSuppDocModal(true)" class="flex items-center justify-center w-12 h-12 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition" title="Add Document">

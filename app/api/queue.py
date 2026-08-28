@@ -275,3 +275,29 @@ def download_queue_item(
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename={item.original_filename}"}
     )
+
+@router.delete("/{queue_item_id}", status_code=204)
+def delete_queue_item(
+    queue_item_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Delete an available item from the shared queue."""
+    item = db.query(AudioQueueItem).filter(
+        AudioQueueItem.id == queue_item_id,
+        AudioQueueItem.status == AudioQueueStatus.AVAILABLE.value
+    ).first()
+    
+    if not item:
+        raise HTTPException(status_code=404, detail="Queue item not found or already claimed")
+    
+    # Delete the file from storage
+    try:
+        storage_service.delete_file(item.storage_path)
+    except Exception as e:
+        print(f"Warning: Failed to delete file from storage: {e}")
+    
+    # Delete from DB
+    db.delete(item)
+    db.commit()
+    return

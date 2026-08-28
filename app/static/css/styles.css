@@ -45,6 +45,12 @@ input[type=range]::-webkit-slider-runnable-track {
     backdrop-filter: blur(4px);
 }
 
+/* My Files sidebar button — active state (true green) */
+.myfiles-active {
+    background-color: #dcfce7 !important; /* green-100 */
+    color: #15803d !important;           /* green-700 */
+}
+
 /* =====================================================
    Audio Player Slab
    ===================================================== */

@@ -103,6 +103,15 @@ const App = {
         if (App.state.view === 'transcript' && viewName !== 'transcript') {
             App.destroyAudioPlayer();
         }
+        // Cleanup ledger audio if leaving ledger-detail
+        if (App.state.view === 'ledger-detail' && viewName !== 'ledger-detail') {
+            if (App._ledgerAudio) {
+                App._ledgerAudio.pause();
+                App._ledgerAudio = null;
+                App._ledgerAudioJobId = null;
+                App._ledgerAudioPlaying = false;
+            }
+        }
         // Reset edit mode when navigating away
         App.state.isEditing = false;
 
@@ -338,7 +347,7 @@ const App = {
         const barsHtml = days.map(d => {
             const uploadH = (d.uploaded / maxVal) * chartHeight;
             const completeH = (d.completed / maxVal) * chartHeight;
-            const isToday = d.label === new Date().toLocaleDateString('en-US', { weekday: 'short' });
+            const isToday = d.label === new Date().toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Europe/Paris' });
 
             return `
                 <div class="activity-bar-group">
@@ -433,8 +442,49 @@ const App = {
         }
     },
 
-    claimSharedQueueItem: async (itemId) => {
-        if (!confirm("Claim this audio for your personal transcription?")) return;
+    // Claim modal state
+    _claimModalItemId: null,
+    _claimModalFilename: null,
+
+    showClaimModal: (itemId, filename) => {
+        App._claimModalItemId = itemId;
+        App._claimModalFilename = filename;
+        const modal = document.getElementById('claimModal');
+        if (modal) modal.classList.remove('hidden');
+    },
+
+    hideClaimModal: () => {
+        App._claimModalItemId = null;
+        App._claimModalFilename = null;
+        const modal = document.getElementById('claimModal');
+        if (modal) modal.classList.add('hidden');
+    },
+
+    claimWithDownload: async () => {
+        const itemId = App._claimModalItemId;
+        const filename = App._claimModalFilename;
+        if (!itemId) return;
+        App.hideClaimModal();
+
+        // Download first, then claim
+        try {
+            await App.downloadSharedAudio(itemId, filename);
+        } catch (e) {
+            console.error('Download during claim failed:', e);
+        }
+
+        // Now claim
+        await App._performClaim(itemId);
+    },
+
+    claimWithoutDownload: async () => {
+        const itemId = App._claimModalItemId;
+        if (!itemId) return;
+        App.hideClaimModal();
+        await App._performClaim(itemId);
+    },
+
+    _performClaim: async (itemId) => {
         try {
             const res = await App.authFetch(`${App.API_URL}/queue/${itemId}/claim`, {
                 method: 'POST'
@@ -450,8 +500,26 @@ const App = {
         } catch (err) {
             console.error(err);
             alert("Failed to claim: " + err.message);
-            // Refresh queue just in case it was already claimed
             App.loadSharedQueue();
+        }
+    },
+
+    deleteSharedQueueItem: async (itemId) => {
+        if (!confirm("Delete this audio from the shared queue? This cannot be undone.")) return;
+        try {
+            const res = await App.authFetch(`${App.API_URL}/queue/${itemId}`, {
+                method: 'DELETE'
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "Delete failed");
+            }
+            
+            App.loadSharedQueue();
+        } catch (err) {
+            console.error(err);
+            alert("Failed to delete: " + err.message);
         }
     },
 
@@ -1319,6 +1387,101 @@ const App = {
         } catch (e) {
             console.error("Download error", e);
             alert("Download failed");
+        }
+    },
+
+    // Download audio for a personal job (My Files page)
+    downloadJobAudio: async (jobId, filename) => {
+        try {
+            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/audio`);
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+            } else {
+                alert("Download failed");
+            }
+        } catch (e) {
+            console.error("Download error", e);
+            alert("Download failed");
+        }
+    },
+
+    // Ledger detail audio play/pause (pause resets to beginning)
+    _ledgerAudio: null,
+    _ledgerAudioJobId: null,
+    _ledgerAudioPlaying: false,
+
+    toggleLedgerAudio: async (jobId) => {
+        const playBtn = document.getElementById('ledgerPlayBtn');
+        const playIcon = document.getElementById('ledgerPlayIcon');
+        const playText = document.getElementById('ledgerPlayText');
+
+        // If currently playing, pause and reset
+        if (App._ledgerAudio && App._ledgerAudioPlaying) {
+            App._ledgerAudio.pause();
+            App._ledgerAudio.currentTime = 0;
+            App._ledgerAudioPlaying = false;
+            if (playIcon) playIcon.innerHTML = '<path d="M8 5v14l11-7z"></path>';
+            if (playText) playText.textContent = 'Play Audio';
+            if (playBtn) {
+                playBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                playBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            }
+            return;
+        }
+
+        // If different job or no audio loaded, load it
+        if (!App._ledgerAudio || App._ledgerAudioJobId !== jobId) {
+            if (App._ledgerAudio) {
+                App._ledgerAudio.pause();
+                App._ledgerAudio = null;
+            }
+
+            try {
+                const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/audio`);
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    App._ledgerAudio = new Audio(blobUrl);
+                    App._ledgerAudioJobId = jobId;
+
+                    App._ledgerAudio.onended = () => {
+                        App._ledgerAudioPlaying = false;
+                        App._ledgerAudio.currentTime = 0;
+                        if (playIcon) playIcon.innerHTML = '<path d="M8 5v14l11-7z"></path>';
+                        if (playText) playText.textContent = 'Play Audio';
+                        if (playBtn) {
+                            playBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                            playBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                        }
+                    };
+                } else {
+                    alert('Failed to load audio');
+                    return;
+                }
+            } catch (e) {
+                console.error('Audio load failed:', e);
+                alert('Failed to load audio');
+                return;
+            }
+        }
+
+        // Play from beginning
+        App._ledgerAudio.currentTime = 0;
+        App._ledgerAudio.play();
+        App._ledgerAudioPlaying = true;
+        if (playIcon) playIcon.innerHTML = '<path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path>';
+        if (playText) playText.textContent = 'Pause';
+        if (playBtn) {
+            playBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            playBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
         }
     }
 };
