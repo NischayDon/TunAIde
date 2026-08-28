@@ -1332,18 +1332,46 @@ const App = {
     },
 
     playSharedAudio: async (queueItemId, filename) => {
+        const playBtn = document.getElementById(`sharedPlayBtn-${queueItemId}`);
+        const playIcon = document.getElementById(`sharedPlayIcon-${queueItemId}`);
+
+        const resetUI = (id) => {
+            const oldIcon = document.getElementById(`sharedPlayIcon-${id}`);
+            const oldBtn = document.getElementById(`sharedPlayBtn-${id}`);
+            if (oldIcon) oldIcon.innerHTML = '<path d="M8 5v14l11-7z"></path>';
+            if (oldBtn) {
+                oldBtn.classList.remove('text-amber-600', 'bg-amber-100');
+                oldBtn.classList.add('text-slate-500', 'hover:text-blue-600', 'hover:bg-slate-100');
+            }
+        };
+
+        const setStopUI = () => {
+            if (playIcon) playIcon.innerHTML = '<path d="M6 6h12v12H6z"></path>';
+            if (playBtn) {
+                playBtn.classList.remove('text-slate-500', 'hover:text-blue-600', 'hover:bg-slate-100');
+                playBtn.classList.add('text-amber-600', 'bg-amber-100');
+            }
+        };
+
         if (App._sharedAudio && App._currentPlayingSharedId === queueItemId) {
             if (!App._sharedAudio.paused) {
                 App._sharedAudio.pause();
+                App._sharedAudio.currentTime = 0;
+                resetUI(queueItemId);
                 return;
             } else {
+                App._sharedAudio.currentTime = 0;
                 App._sharedAudio.play();
+                setStopUI();
                 return;
             }
         }
 
         if (App._sharedAudio) {
             App._sharedAudio.pause();
+            if (App._currentPlayingSharedId) {
+                resetUI(App._currentPlayingSharedId);
+            }
             App._sharedAudio = null;
         }
 
@@ -1354,10 +1382,13 @@ const App = {
                 const blobUrl = URL.createObjectURL(blob);
                 App._sharedAudio = new Audio(blobUrl);
                 App._currentPlayingSharedId = queueItemId;
+                
+                App._sharedAudio.currentTime = 0;
                 App._sharedAudio.play();
+                setStopUI();
                 
                 App._sharedAudio.onended = () => {
-                    App._currentPlayingSharedId = null;
+                    resetUI(queueItemId);
                 };
             } else {
                 alert("Failed to load audio");
