@@ -4,7 +4,7 @@ const Components = {
             <div class="max-w-md w-full bg-white rounded-lg shadow-sm border border-slate-200 p-8">
                 <div class="text-center mb-8">
                     <h1 class="text-2xl font-bold text-slate-900 flex items-center justify-center gap-2">
-                        <img src="/static/img/logo.png" alt="TunAIde Logo" class="h-24">
+                        <img src="/static/img/logo.png" alt="TunAIde Logo" class="h-64 object-contain max-w-full">
                     </h1>
                     <p class="text-slate-500 text-sm mt-2">Sign in to your account</p>
                 </div>
@@ -209,7 +209,7 @@ const Components = {
         <div class="w-64 bg-white border-r border-slate-200 flex flex-col h-full fixed left-0 top-0 z-10 transition-all">
             <div class="p-6 flex items-center justify-center">
                 <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <img src="/static/img/logo.png" alt="TunAIde Logo" class="h-20">
+                    <img src="/static/img/logo.png" alt="TunAIde Logo" class="h-40 object-contain max-w-full">
                 </h1>
             </div>
             
