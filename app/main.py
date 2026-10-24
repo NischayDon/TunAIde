@@ -94,4 +94,20 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "TunAIde Phase One"}
+    """
+    Health check that reports actual storage connectivity.
+    Returns 200 even if storage is unhealthy (so Railway doesn't restart the
+    service in a loop), but the response body distinguishes a live process
+    from one that can actually process jobs.
+    """
+    result = {"status": "ok", "service": "TunAIde Phase One"}
+    try:
+        from app.services.storage import storage_service
+        storage_status = storage_service.verify()
+        result["storage"] = storage_status
+        if not storage_status.get("healthy"):
+            result["status"] = "degraded"
+    except Exception as e:
+        result["storage"] = {"healthy": False, "error": str(e)}
+        result["status"] = "degraded"
+    return result
