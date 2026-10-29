@@ -43,3 +43,10 @@ ENV/
 .vscode/
 .idea/
 .vs/
+
+# Node
+node_modules/
+
+# Uploads
+app/static/uploads/*
+!app/static/uploads/.gitkeep

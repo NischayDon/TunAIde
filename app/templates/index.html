@@ -101,7 +101,7 @@
     </script>
 
     <!-- Custom Styles -->
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css?v=2">
 
     <!-- Prose Mirror Styles (Simulation for nice text reading) -->
     <style>
@@ -120,17 +120,26 @@
 
     <!-- App Container -->
     <div id="app" class="flex min-h-screen">
-        <!-- JS injects UI here -->
-        <div class="m-auto text-center p-12">
-            <div class="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4">
-            </div>
-            <p class="text-slate-500 font-medium">Loading TunAIde...</p>
+        <!-- JS injects UI here — ThinkingOrb replaces the spinner -->
+        <div id="appBootLoader" class="thinking-orb-container thinking-orb-fullpage"
+             role="status" aria-label="Loading TunAIde" aria-live="polite"
+             data-orb-state="connecting" data-orb-size="64">
+            <canvas class="thinking-orb-canvas"
+                    width="128" height="128"
+                    style="width:64px;height:64px;"
+                    aria-hidden="true"></canvas>
+            <span class="thinking-orb-label text-sm">Loading TunAIde…</span>
         </div>
     </div>
 
     <!-- Scripts -->
-    <script src="/static/js/components.js?v=19"></script>
-    <script src="/static/js/app.js?v=19"></script>
+    <script src="/static/js/thinking-orbs.js?v=2"></script>
+    <script src="/static/js/components.js?v=21"></script>
+    <script src="/static/js/app.js?v=21"></script>
+    <script>
+        // Initialize the boot loader orb as soon as the engine is ready
+        ThinkingLoader.init();
+    </script>
 </body>
 
 </html>

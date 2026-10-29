@@ -17,8 +17,8 @@ const Components = {
                         <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
                         <input type="password" name="password" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
-                    <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition font-medium">
-                        Sign In
+                    <button type="submit" id="loginBtn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition font-medium flex items-center justify-center gap-2">
+                        <span id="loginBtnText">Sign In</span>
                     </button>
                 </form>
             </div>
@@ -41,18 +41,8 @@ const Components = {
                             <p class="text-xs text-slate-500">Uploads & completions over the last 7 days</p>
                         </div>
                     </div>
-                    <div id="activityChart" class="activity-chart">
-                        <div class="activity-chart-loading">
-                            <div class="animate-pulse flex gap-3 items-end h-32">
-                                <div class="flex-1 bg-slate-100 rounded h-8"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-16"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-12"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-20"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-10"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-14"></div>
-                                <div class="flex-1 bg-slate-100 rounded h-6"></div>
-                            </div>
-                        </div>
+                    <div id="activityChart" class="activity-chart min-h-[140px] flex items-center justify-center">
+                        ${ThinkingLoader.section('weaving', 'Loading weekly activity…')}
                     </div>
                     <div class="flex items-center gap-4 mt-3 justify-end">
                         <div class="flex items-center gap-1.5">
@@ -81,8 +71,8 @@ const Components = {
                                 <th class="px-6 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            ${stats.length ? stats.map(u => `
+                        <tbody id="userStatsTableBody" class="divide-y divide-slate-100">
+                            ${stats && stats.length ? stats.map(u => `
                                 <tr class="hover:bg-slate-50">
                                     <td class="px-6 py-4 font-medium text-slate-900">${u.username}</td>
                                     <td class="px-6 py-4 text-right tabular-nums">${u.upload_count}</td>
@@ -97,7 +87,9 @@ const Components = {
                                 </tr>
                             `).join('') : `
                                 <tr>
-                                    <td colspan="5" class="px-6 py-8 text-center text-slate-400">No user data available</td>
+                                    <td colspan="5" class="px-6 py-8 text-center text-slate-400">
+                                        ${(stats === null) ? ThinkingLoader.section('searching', 'Loading user statistics…') : 'No user data available'}
+                                    </td>
                                 </tr>
                             `}
                         </tbody>
@@ -144,7 +136,7 @@ const Components = {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            ${users.length ? users.map(u => `
+                            ${users && users.length ? users.map(u => `
                                 <tr class="hover:bg-slate-50">
                                     <td class="px-6 py-4 font-medium text-slate-900">${u.username}</td>
                                     <td class="px-6 py-4 text-slate-500 text-sm">
@@ -164,7 +156,9 @@ const Components = {
                                 </tr>
                             `).join('') : `
                                 <tr>
-                                    <td colspan="3" class="px-6 py-8 text-center text-slate-400">No users found</td>
+                                    <td colspan="3" class="px-6 py-8 text-center text-slate-400">
+                                        ${(users === null) ? ThinkingLoader.section('searching', 'Loading users…') : 'No users found'}
+                                    </td>
                                 </tr>
                             `}
                         </tbody>
@@ -346,16 +340,22 @@ const Components = {
                 </div>
 
                 <!-- Upload Status -->
-                <div id="sharedUploadArea" class="hidden mb-8 bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-pulse">
-                     <div class="flex items-center gap-4">
-                         <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                             <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                         </div>
-                         <div>
-                             <p class="font-medium text-slate-900" id="sharedUploadText">Uploading to shared queue...</p>
-                             <p class="text-sm text-slate-500">Please do not close this tab.</p>
-                         </div>
-                     </div>
+                <div id="sharedUploadArea" class="hidden mb-8 thinking-orb-upload-card" data-orb-container="sharedUploadOrb">
+                    <div id="sharedUploadOrbContainer" class="thinking-orb-container thinking-orb-inline"
+                         role="status" aria-label="Uploading to shared queue" aria-live="polite"
+                         data-orb-state="working" data-orb-size="64">
+                        <canvas class="thinking-orb-canvas" width="128" height="128" style="width:64px;height:64px;" aria-hidden="true"></canvas>
+                    </div>
+                    <div class="thinking-orb-upload-info">
+                        <p class="thinking-orb-upload-title" id="sharedUploadText">Uploading to shared queue...</p>
+                        <p class="thinking-orb-upload-subtitle" id="sharedUploadSubText">Please do not close this tab.</p>
+                        <div class="thinking-orb-progress">
+                            <div class="thinking-orb-progress-bar">
+                                <div id="sharedUploadProgressBar" class="thinking-orb-progress-fill" style="width: 0%;"></div>
+                            </div>
+                            <span id="sharedUploadProgressText" class="thinking-orb-progress-text">0%</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- File List -->
@@ -372,8 +372,12 @@ const Components = {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            ${items.length ? listHtml : `
-                                <tr><td colspan="6" class="px-6 py-12 text-center text-slate-400">No files currently in the shared queue.</td></tr>
+                            ${items && items.length ? listHtml : `
+                                <tr>
+                                    <td colspan="6" class="px-6 py-12 text-center text-slate-400">
+                                        ${(items === null) ? ThinkingLoader.section('searching', 'Loading shared audio queue…') : 'No files currently in the shared queue.'}
+                                    </td>
+                                </tr>
                             `}
                         </tbody>
                     </table>
@@ -436,16 +440,22 @@ const Components = {
                 </div>
 
                 <!-- Upload Status -->
-                <div id="uploadArea" class="hidden mb-8 bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-pulse">
-                     <div class="flex items-center gap-4">
-                         <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                             <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                         </div>
-                         <div>
-                             <p class="font-medium text-slate-900" id="uploadText">Uploading...</p>
-                             <p class="text-sm text-slate-500">Please do not close this tab.</p>
-                         </div>
-                     </div>
+                <div id="uploadArea" class="hidden mb-8 thinking-orb-upload-card" data-orb-container="uploadOrb">
+                    <div id="uploadOrbContainer" class="thinking-orb-container thinking-orb-inline"
+                         role="status" aria-label="Uploading file" aria-live="polite"
+                         data-orb-state="working" data-orb-size="64">
+                        <canvas class="thinking-orb-canvas" width="128" height="128" style="width:64px;height:64px;" aria-hidden="true"></canvas>
+                    </div>
+                    <div class="thinking-orb-upload-info">
+                        <p class="thinking-orb-upload-title" id="uploadText">Uploading file...</p>
+                        <p class="thinking-orb-upload-subtitle" id="uploadSubText">Please do not close this tab.</p>
+                        <div class="thinking-orb-progress">
+                            <div class="thinking-orb-progress-bar">
+                                <div id="uploadProgressBar" class="thinking-orb-progress-fill" style="width: 0%;"></div>
+                            </div>
+                            <span id="uploadProgressText" class="thinking-orb-progress-text">0%</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Completion Tracker (Lifetime) -->
@@ -530,12 +540,7 @@ const Components = {
                         <span id="editBtnText">Edit</span>
                     </button>
                     <div id="transcriptContent" class="prose prose-slate max-w-none prose-lg transcript-editable-area">
-                        <!-- Content or Skeleton -->
-                        <div class="animate-pulse space-y-4">
-                            <div class="h-4 bg-slate-100 rounded w-3/4"></div>
-                            <div class="h-4 bg-slate-100 rounded w-full"></div>
-                            <div class="h-4 bg-slate-100 rounded w-5/6"></div>
-                        </div>
+                        ${ThinkingLoader.section('searching', 'Loading transcript content…')}
                     </div>
                 </div>
             </div>
@@ -584,10 +589,13 @@ const Components = {
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"></path></svg>
                     </button>
 
-                    <!-- Play/Pause -->
-                    <button id="audioPlayPauseBtn" onclick="App.togglePlayPause()" class="audio-play-btn" title="Play/Pause (Space)">
+                    <!-- Play/Pause & Buffering -->
+                    <button id="audioPlayPauseBtn" onclick="App.togglePlayPause()" class="audio-play-btn relative" title="Play/Pause (Space)">
                         <svg id="playIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
                         <svg id="pauseIcon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path></svg>
+                        <div id="audioBufferIcon" class="hidden absolute inset-0 flex items-center justify-center">
+                            ${ThinkingLoader.inline('listening', '')}
+                        </div>
                     </button>
 
                     <!-- Forward 10s -->
@@ -649,8 +657,8 @@ const Components = {
         const statusColors = {
             'UPLOADED': 'bg-slate-100 text-slate-700',
             'QUEUED': 'bg-yellow-50 text-yellow-700 border-yellow-200',
-            'PROCESSING': 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse',
-            'TRANSCRIBING': 'bg-purple-50 text-purple-700 border-purple-200 animate-pulse',
+            'PROCESSING': 'bg-blue-50 text-blue-700 border-blue-200',
+            'TRANSCRIBING': 'bg-purple-50 text-purple-700 border-purple-200',
             'COMPLETED': 'bg-green-50 text-green-700 border-green-200',
             'FAILED': 'bg-red-50 text-red-700 border-red-200',
             'TRASHED': 'bg-slate-100 text-slate-400 border-slate-200'
@@ -702,8 +710,13 @@ const Components = {
                     </div>
                 </td>
                 <td class="px-6 py-4">
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}">
-                        ${job.status}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}">
+                        ${(job.status === 'PROCESSING' || job.status === 'TRANSCRIBING')
+                            ? ThinkingLoader.inline('solving', '')
+                            : (job.status === 'QUEUED'
+                                ? ThinkingLoader.inline('connecting', '')
+                                : '')}
+                        <span>${job.status}</span>
                     </span>
                 </td>
                 <td class="px-6 py-4 text-slate-500 text-sm tabular-nums">
@@ -783,7 +796,7 @@ const Components = {
                                 </tr>
                             </thead>
                             <tbody id="ledgerTableBody" class="divide-y divide-slate-100 text-sm">
-                                <!-- Ledger rows injected here -->
+                                <tr><td colspan="8" class="py-12">${ThinkingLoader.section('weaving', 'Loading ledger records…')}</td></tr>
                             </tbody>
                         </table>
                     </div>

@@ -415,3 +415,194 @@ input[type=range]::-webkit-slider-runnable-track {
         bottom: 16px;
     }
 }
+
+/* =====================================================
+   Thinking Orbs — Loading Indicator System
+   ===================================================== */
+
+/* Base container */
+.thinking-orb-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+    transition: opacity 0.3s ease;
+}
+
+.thinking-orb-canvas {
+    display: block;
+    flex-shrink: 0;
+}
+
+.thinking-orb-label {
+    color: #627D98; /* slate-500 */
+    font-weight: 500;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+/* ── Inline variant ────────────────────────────────── */
+.thinking-orb-inline {
+    display: inline-flex;
+    vertical-align: middle;
+    gap: 6px;
+}
+
+.thinking-orb-inline .thinking-orb-label {
+    font-size: 12px;
+}
+
+/* ── Section variant (centered in a content area) ──── */
+.thinking-orb-section {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    padding: 40px 20px;
+    min-height: 200px;
+    width: 100%;
+}
+
+.thinking-orb-section .thinking-orb-label {
+    text-align: center;
+    font-size: 14px;
+    max-width: 300px;
+}
+
+/* ── Overlay variant ───────────────────────────────── */
+.thinking-orb-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    background: rgba(240, 244, 248, 0.85); /* slate-50 with opacity */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: orb-fade-in 0.2s ease-out;
+}
+
+.thinking-orb-overlay .thinking-orb-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: #334E68;
+    text-align: center;
+    max-width: 360px;
+}
+
+/* ── Full-page variant ─────────────────────────────── */
+.thinking-orb-fullpage {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    background: #F0F4F8; /* slate-50 */
+}
+
+.thinking-orb-fullpage .thinking-orb-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: #334E68;
+    text-align: center;
+}
+
+/* ── Upload/Download progress indicator ────────────── */
+.thinking-orb-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 280px;
+    margin-top: 4px;
+}
+
+.thinking-orb-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: #D9E2EC; /* slate-100 */
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.thinking-orb-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0066FF, #3385FF);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.thinking-orb-progress-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: #627D98;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Upload card (replaces the old spinner card) ──── */
+.thinking-orb-upload-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    background: white;
+    border: 1px solid #D9E2EC;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    animation: orb-fade-in 0.2s ease-out;
+}
+
+.thinking-orb-upload-card .thinking-orb-canvas {
+    flex-shrink: 0;
+}
+
+.thinking-orb-upload-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+}
+
+.thinking-orb-upload-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #243B53;
+}
+
+.thinking-orb-upload-subtitle {
+    font-size: 12px;
+    color: #829AB1;
+}
+
+/* ── Animations ────────────────────────────────────── */
+@keyframes orb-fade-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes orb-fade-out {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+.thinking-orb-hidden {
+    display: none !important;
+}
+
+/* ── Reduced motion ────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .thinking-orb-container {
+        animation: none !important;
+    }
+    .thinking-orb-overlay,
+    .thinking-orb-upload-card {
+        animation: none !important;
+    }
+}

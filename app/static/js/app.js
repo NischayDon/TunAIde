@@ -12,7 +12,19 @@ const App = {
         lifetimeStats: null,
         dailyStats: null,
         popupQueue: [],
-        sharedQueueItems: []
+        sharedQueueItems: [],
+        loadingJobs: true,
+        loadingSharedQueue: false,
+        loadingAdminStats: false
+    },
+
+    formatBytes: (bytes, decimals = 1) => {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
     },
 
     // Audio player state (not persisted)
@@ -56,6 +68,7 @@ const App = {
 
         if (App.state.view === 'login') {
             root.innerHTML = Components.Login();
+            ThinkingLoader.init(root);
             return;
         }
 
@@ -96,6 +109,9 @@ const App = {
             main.innerHTML = Components.SharedAudioQueue(App.state.sharedQueueItems);
             App.loadSharedQueue();
         }
+
+        // Initialize any Thinking Orbs present in the newly rendered view
+        ThinkingLoader.init(main);
     },
 
     navigateTo: (viewName) => {
@@ -135,6 +151,14 @@ const App = {
     },
 
     login: async (username, password) => {
+        const loginBtn = document.getElementById('loginBtn');
+        const originalText = loginBtn ? loginBtn.innerHTML : '';
+        if (loginBtn) {
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = `${ThinkingLoader.inline('connecting', 'Signing In…')}`;
+            ThinkingLoader.init(loginBtn);
+        }
+
         try {
             const res = await fetch(`${App.API_URL}/auth/login`, {
                 method: 'POST',
@@ -162,6 +186,10 @@ const App = {
 
         } catch (e) {
             alert(e.message);
+            if (loginBtn) {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = originalText;
+            }
         }
     },
 
@@ -210,51 +238,78 @@ const App = {
             }
 
             App.state.jobs = jobs;
+            App.state.loadingJobs = false;
             App.processPopupQueue();
             if (App.state.view === 'dashboard' || App.state.view === 'trash') {
                 App.renderJobsList();
+            } else if (App.state.view === 'ledger') {
+                App.renderLedgerList();
             }
         } catch (e) {
             console.error("Load jobs error:", e);
+            App.state.loadingJobs = false;
+            if (App.state.view === 'dashboard' || App.state.view === 'trash') {
+                const tbody = document.getElementById('jobsTableBody');
+                if (tbody && (!App.state.jobs || App.state.jobs.length === 0)) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-red-500 font-medium">Failed to load files. <button onclick="App.loadJobs()" class="underline text-blue-600 hover:text-blue-800 ml-2">Retry</button></td></tr>`;
+                }
+            }
         }
     },
 
     loadSharedQueue: async () => {
         if (!App.state.token) return;
+        App.state.loadingSharedQueue = true;
         try {
             const res = await App.authFetch(`${App.API_URL}/queue/`);
             if (res.ok) {
                 const data = await res.json();
                 App.state.sharedQueueItems = data.items;
+                App.state.loadingSharedQueue = false;
                 if (App.state.view === 'shared-queue') {
                     const main = document.getElementById('main-content');
-                    if (main) main.innerHTML = Components.SharedAudioQueue(App.state.sharedQueueItems);
+                    if (main) {
+                        main.innerHTML = Components.SharedAudioQueue(App.state.sharedQueueItems);
+                        ThinkingLoader.init(main);
+                    }
                 }
+            } else {
+                App.state.loadingSharedQueue = false;
             }
         } catch (e) {
             console.error("Load shared queue error:", e);
+            App.state.loadingSharedQueue = false;
         }
     },
 
     loadAdminStats: async () => {
         if (!App.state.token || !App.state.user.is_admin) return;
+        App.state.loadingAdminStats = true;
         try {
             const res = await App.authFetch(`${App.API_URL}/admin/users`);
             if (res.ok) {
                 const stats = await res.json();
                 App.state.adminStats = stats;
+                App.state.loadingAdminStats = false;
                 // Re-render admin view with data
                 const main = document.getElementById('main-content');
                 if ((App.state.view === 'admin' || App.state.view === 'user-management') && main) {
                     if (App.state.view === 'admin') {
                         main.innerHTML = Components.AdminDashboard(App.state.adminStats);
+                        ThinkingLoader.init(main);
                         App.loadDailyStats(); // Load activity chart on Admin Dashboard
                     } else {
                         main.innerHTML = Components.UserManagement(App.state.adminStats);
+                        ThinkingLoader.init(main);
                     }
                 }
+            } else {
+                App.state.loadingAdminStats = false;
             }
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            App.state.loadingAdminStats = false;
+        }
     },
 
     renderJobsList: () => {
@@ -265,8 +320,16 @@ const App = {
 
         if (!tbody) return;
 
+        // If initial loading and no cached jobs
+        if (App.state.loadingJobs && (!App.state.jobs || App.state.jobs.length === 0)) {
+            if (emptyState) emptyState.classList.add('hidden');
+            tbody.innerHTML = `<tr><td colspan="6" class="py-12">${ThinkingLoader.section('searching', App.state.view === 'trash' ? 'Loading trash…' : 'Loading your files…')}</td></tr>`;
+            ThinkingLoader.init(tbody);
+            return;
+        }
+
         // Sort jobs by created_at descending (newest first)
-        const sortedJobs = [...App.state.jobs].sort((a, b) => 
+        const sortedJobs = [...(App.state.jobs || [])].sort((a, b) => 
             new Date(b.created_at) - new Date(a.created_at)
         );
 
@@ -275,22 +338,25 @@ const App = {
 
         if (sortedJobs.length === 0) {
             tbody.innerHTML = '';
-            emptyState.classList.remove('hidden');
+            if (emptyState) emptyState.classList.remove('hidden');
             if (App.state.view === 'trash') {
-                emptyTitle.textContent = "Trash is empty";
-                emptyDesc.textContent = "Deleted files will appear here.";
+                if (emptyTitle) emptyTitle.textContent = "Trash is empty";
+                if (emptyDesc) emptyDesc.textContent = "Deleted files will appear here.";
             } else {
-                emptyTitle.textContent = "No files yet";
-                emptyDesc.textContent = "Upload an audio or video file to get started.";
+                if (emptyTitle) emptyTitle.textContent = "No files yet";
+                if (emptyDesc) emptyDesc.textContent = "Upload an audio or video file to get started.";
             }
             return;
         }
 
-        emptyState.classList.add('hidden');
+        if (emptyState) emptyState.classList.add('hidden');
         // Serial numbers: newest = #1
         tbody.innerHTML = sortedJobs.map((job, index) =>
             Components.JobRow(job, App.state.view === 'trash', App.state.activeActionMenu === job.id, index + 1)
         ).join('');
+
+        // Initialize inline status orbs for processing, transcribing, and queued jobs
+        ThinkingLoader.init(tbody);
     },
 
     loadLifetimeStats: async () => {
@@ -373,24 +439,66 @@ const App = {
 
         const uploadArea = document.getElementById('uploadArea');
         const uploadText = document.getElementById('uploadText');
+        const uploadSubText = document.getElementById('uploadSubText');
+        const uploadProgressBar = document.getElementById('uploadProgressBar');
+        const uploadProgressText = document.getElementById('uploadProgressText');
+
         if (uploadArea) {
             uploadArea.classList.remove('hidden');
-            uploadText.textContent = `Uploading ${file.name}...`;
+            if (uploadText) uploadText.textContent = `Preparing ${file.name}...`;
+            if (uploadSubText) uploadSubText.textContent = 'Please do not close this tab.';
+            if (uploadProgressBar) uploadProgressBar.style.width = '0%';
+            if (uploadProgressText) uploadProgressText.textContent = '0%';
+            ThinkingLoader.update('uploadOrbContainer', { state: 'working', label: `Uploading ${file.name}` });
+            ThinkingLoader.init(uploadArea);
         }
 
         try {
             const formData = new FormData();
             formData.append('file', file);
 
-            const uploadRes = await App.authFetch(`${App.API_URL}/jobs/upload`, {
-                method: 'POST',
-                body: formData
+            // Use XMLHttpRequest for real upload progress
+            const uploadData = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', `${App.API_URL}/jobs/upload`);
+                if (App.state.token) {
+                    xhr.setRequestHeader('Authorization', `Bearer ${App.state.token}`);
+                }
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const percent = Math.min(Math.round((e.loaded / e.total) * 100), 99);
+                        if (uploadProgressBar) uploadProgressBar.style.width = `${percent}%`;
+                        if (uploadProgressText) {
+                            uploadProgressText.textContent = `${percent}% (${App.formatBytes(e.loaded)} / ${App.formatBytes(e.total)})`;
+                        }
+                        if (uploadText) uploadText.textContent = `Uploading ${file.name}...`;
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const res = JSON.parse(xhr.responseText);
+                            resolve(res);
+                        } catch (err) {
+                            reject(new Error("Invalid JSON response from server"));
+                        }
+                    } else {
+                        reject(new Error(`Upload failed (${xhr.status})`));
+                    }
+                };
+
+                xhr.onerror = () => reject(new Error("Network error during upload"));
+                xhr.send(formData);
             });
 
-            if (!uploadRes.ok) throw new Error("Upload failed");
-            const uploadData = await uploadRes.json();
-
-            if (uploadText) uploadText.textContent = "Queuing transcription job...";
+            // Transition from upload completion to registration and processing
+            if (uploadProgressBar) uploadProgressBar.style.width = '100%';
+            if (uploadProgressText) uploadProgressText.textContent = 'Upload complete (100%)';
+            if (uploadText) uploadText.textContent = "Registering & queuing transcription...";
+            if (uploadSubText) uploadSubText.textContent = "Triggering AI transcription pipeline...";
+            ThinkingLoader.update('uploadOrbContainer', { state: 'solving', label: 'Queuing transcription job…' });
 
             const processRes = await App.authFetch(`${App.API_URL}/jobs/${uploadData.job_id}/process`, {
                 method: 'POST'
@@ -415,22 +523,54 @@ const App = {
 
         const uploadArea = document.getElementById('sharedUploadArea');
         const uploadText = document.getElementById('sharedUploadText');
+        const uploadSubText = document.getElementById('sharedUploadSubText');
+        const uploadProgressBar = document.getElementById('sharedUploadProgressBar');
+        const uploadProgressText = document.getElementById('sharedUploadProgressText');
+
         if (uploadArea) {
             uploadArea.classList.remove('hidden');
-            uploadText.textContent = `Uploading ${file.name} to shared queue...`;
+            if (uploadText) uploadText.textContent = `Preparing ${file.name}...`;
+            if (uploadSubText) uploadSubText.textContent = 'Uploading to team shared queue. Please do not close this tab.';
+            if (uploadProgressBar) uploadProgressBar.style.width = '0%';
+            if (uploadProgressText) uploadProgressText.textContent = '0%';
+            ThinkingLoader.update('sharedUploadOrbContainer', { state: 'working', label: `Uploading ${file.name}` });
+            ThinkingLoader.init(uploadArea);
         }
 
         try {
             const formData = new FormData();
             formData.append('file', file);
 
-            const uploadRes = await App.authFetch(`${App.API_URL}/queue/upload`, {
-                method: 'POST',
-                body: formData
+            await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', `${App.API_URL}/queue/upload`);
+                if (App.state.token) {
+                    xhr.setRequestHeader('Authorization', `Bearer ${App.state.token}`);
+                }
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const percent = Math.min(Math.round((e.loaded / e.total) * 100), 100);
+                        if (uploadProgressBar) uploadProgressBar.style.width = `${percent}%`;
+                        if (uploadProgressText) {
+                            uploadProgressText.textContent = `${percent}% (${App.formatBytes(e.loaded)} / ${App.formatBytes(e.total)})`;
+                        }
+                        if (uploadText) uploadText.textContent = `Uploading ${file.name} to shared queue...`;
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                    } else {
+                        reject(new Error(`Upload failed (${xhr.status})`));
+                    }
+                };
+
+                xhr.onerror = () => reject(new Error("Network error during upload"));
+                xhr.send(formData);
             });
 
-            if (!uploadRes.ok) throw new Error("Upload failed");
-            
             await App.loadSharedQueue();
 
         } catch (err) {
@@ -653,9 +793,18 @@ const App = {
                     App.state.currentJob.json_metadata = data.json_metadata;
                     App.renderTranscript();
                 }
+            } else {
+                const contentEl = document.getElementById('transcriptContent');
+                if (contentEl) {
+                    contentEl.innerHTML = `<div class="p-8 text-center text-red-500 font-medium">Failed to load transcript. <button onclick="App.openTranscript('${jobId}')" class="underline text-blue-600 hover:text-blue-800 ml-2">Retry</button></div>`;
+                }
             }
         } catch (e) {
             console.error("Failed to load transcript text", e);
+            const contentEl = document.getElementById('transcriptContent');
+            if (contentEl) {
+                contentEl.innerHTML = `<div class="p-8 text-center text-red-500 font-medium">Network error loading transcript. <button onclick="App.openTranscript('${jobId}')" class="underline text-blue-600 hover:text-blue-800 ml-2">Retry</button></div>`;
+            }
         }
     },
 
@@ -713,6 +862,15 @@ const App = {
     downloadTranscript: async () => {
         if (!App.state.currentJob) return;
         const jobId = App.state.currentJob.id;
+        const downloadModal = document.getElementById('downloadModal');
+        const downloadBtn = downloadModal ? downloadModal.querySelector('button.bg-blue-600') : null;
+        const originalBtnHtml = downloadBtn ? downloadBtn.innerHTML : '';
+
+        if (downloadBtn) {
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = `${ThinkingLoader.inline('shaping', 'Generating DOCX…')}`;
+            ThinkingLoader.init(downloadBtn);
+        }
 
         try {
             const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/download`);
@@ -737,6 +895,11 @@ const App = {
         } catch (e) {
             console.error("Download error", e);
             alert("Download failed");
+        } finally {
+            if (downloadBtn) {
+                downloadBtn.disabled = false;
+                downloadBtn.innerHTML = originalBtnHtml;
+            }
         }
     },
 
@@ -852,8 +1015,14 @@ const App = {
         const tbody = document.getElementById('ledgerTableBody');
         if (!tbody) return;
         
+        if (App.state.loadingJobs && (!App.state.jobs || App.state.jobs.length === 0)) {
+            tbody.innerHTML = '<tr><td colspan="8" class="py-12">' + ThinkingLoader.section('weaving', 'Loading ledger records…') + '</td></tr>';
+            ThinkingLoader.init(tbody);
+            return;
+        }
+
         // Filter jobs that have service_type (i.e. filled via popup or edited)
-        const ledgerJobs = App.state.jobs.filter(j => j.service_type);
+        const ledgerJobs = (App.state.jobs || []).filter(j => j.service_type);
         
         if (ledgerJobs.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-500">No ledger entries yet.</td></tr>';
@@ -861,6 +1030,7 @@ const App = {
         }
         
         tbody.innerHTML = ledgerJobs.map(job => Components.LedgerRow(job)).join('');
+        ThinkingLoader.init(tbody);
     },
 
     openLedgerDetail: async (jobId) => {
@@ -1044,10 +1214,39 @@ const App = {
             if (seekBar) seekBar.max = 100;
         });
 
+        // Audio buffering and loading event handlers
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const bufferIcon = document.getElementById('audioBufferIcon');
+
+        const showBuffering = () => {
+            if (bufferIcon) {
+                bufferIcon.classList.remove('hidden');
+                ThinkingLoader.init(bufferIcon);
+            }
+            if (playIcon) playIcon.classList.add('hidden');
+            if (pauseIcon) pauseIcon.classList.add('hidden');
+        };
+
+        const hideBuffering = () => {
+            if (bufferIcon) bufferIcon.classList.add('hidden');
+            if (audio.paused) {
+                if (playIcon) playIcon.classList.remove('hidden');
+                if (pauseIcon) pauseIcon.classList.add('hidden');
+            } else {
+                if (playIcon) playIcon.classList.add('hidden');
+                if (pauseIcon) pauseIcon.classList.remove('hidden');
+            }
+        };
+
+        audio.addEventListener('waiting', showBuffering);
+        audio.addEventListener('seeking', showBuffering);
+        audio.addEventListener('canplay', hideBuffering);
+        audio.addEventListener('playing', hideBuffering);
+
         // Audio ended
         audio.addEventListener('ended', () => {
-            const playIcon = document.getElementById('playIcon');
-            const pauseIcon = document.getElementById('pauseIcon');
+            hideBuffering();
             if (playIcon) playIcon.classList.remove('hidden');
             if (pauseIcon) pauseIcon.classList.add('hidden');
         });
@@ -1303,10 +1502,17 @@ const App = {
 
     saveTranscriptEdit: async () => {
         const contentEl = document.getElementById('transcriptContent');
+        const editBtn = document.getElementById('editToggleBtn');
         if (!contentEl || !App.state.currentJob) return;
 
         const editedText = contentEl.innerText.trim();
         const jobId = App.state.currentJob.id;
+
+        if (editBtn) {
+            editBtn.disabled = true;
+            editBtn.innerHTML = `${ThinkingLoader.inline('working', 'Saving…')}`;
+            ThinkingLoader.init(editBtn);
+        }
 
         try {
             const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/transcript`, {
@@ -1328,6 +1534,14 @@ const App = {
         } catch (e) {
             console.error('Save transcript error:', e);
             alert('Failed to save transcript');
+        } finally {
+            if (editBtn) {
+                editBtn.disabled = false;
+                editBtn.innerHTML = `
+                    <svg id="editBtnIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    <span id="editBtnText">Edit</span>
+                `;
+            }
         }
     },
 

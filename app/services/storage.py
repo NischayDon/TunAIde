@@ -197,8 +197,11 @@ class StorageService:
     def _try_init_gcs(self) -> bool:
         """Attempt GCS initialization.  Returns True on success, False otherwise."""
         try:
+            # pyrefly: ignore[missing-import]
             from google.cloud import storage as gcs_storage
+            # pyrefly: ignore[missing-import]
             from google.oauth2 import service_account
+            # pyrefly: ignore[missing-import]
             import json as _json
         except ImportError:
             logger.debug("google-cloud-storage not installed — skipping GCS.")
