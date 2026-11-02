@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 import os
+from urllib.parse import quote
 from typing import List, Optional
 from datetime import datetime, timezone
 
@@ -13,6 +14,34 @@ from app.services.storage import storage_service
 from app.workers.tasks import process_audio
 
 router = APIRouter()
+
+def get_content_disposition(filename: str, disposition_type: str = "attachment") -> str:
+    """
+    Generate RFC 6266 / RFC 5987 compliant Content-Disposition header.
+    ASCII filename is used as fallback, while filename*=UTF-8'' supports any unicode/emoji characters.
+    """
+    clean_name = filename.replace('"', '').replace('\r', '').replace('\n', '')
+    ascii_name = clean_name.encode('ascii', 'ignore').decode('ascii').strip()
+    if not ascii_name:
+        ascii_name = "download"
+    encoded_name = quote(clean_name, safe='')
+    return f"{disposition_type}; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded_name}"
+
+
+def get_accessible_queue_item_or_404(db: Session, queue_item_id: str, user: User) -> AudioQueueItem:
+    """Fetch an audio queue item if available, or if claimed/uploaded by the user, or if admin."""
+    query = db.query(AudioQueueItem).filter(AudioQueueItem.id == queue_item_id)
+    if not user.is_admin:
+        query = query.filter(
+            (AudioQueueItem.status == AudioQueueStatus.AVAILABLE.value) |
+            (AudioQueueItem.claimed_by_id == user.id) |
+            (AudioQueueItem.uploaded_by_id == user.id)
+        )
+    item = query.first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Queue item not found")
+    return item
+
 
 @router.get("/", response_model=AudioQueueListResponse)
 def list_queue_items(
@@ -150,12 +179,7 @@ def stream_audio(
     user: User = Depends(get_current_user)
 ):
     """Stream the original uploaded audio file for browser playback."""
-    item = db.query(AudioQueueItem).filter(
-        AudioQueueItem.id == queue_item_id,
-        AudioQueueItem.status == AudioQueueStatus.AVAILABLE.value
-    ).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Queue item not found")
+    item = get_accessible_queue_item_or_404(db, queue_item_id, user)
     
     try:
         file_path = storage_service.download_to_temp(item.storage_path)
@@ -237,12 +261,7 @@ def download_queue_item(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    item = db.query(AudioQueueItem).filter(
-        AudioQueueItem.id == queue_item_id,
-        AudioQueueItem.status == AudioQueueStatus.AVAILABLE.value
-    ).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Queue item not found")
+    item = get_accessible_queue_item_or_404(db, queue_item_id, user)
     
     try:
         file_path = storage_service.download_to_temp(item.storage_path)
@@ -273,7 +292,7 @@ def download_queue_item(
     return StreamingResponse(
         iterfile(),
         media_type=media_type,
-        headers={"Content-Disposition": f"attachment; filename={item.original_filename}"}
+        headers={"Content-Disposition": get_content_disposition(item.original_filename)}
     )
 
 @router.delete("/{queue_item_id}", status_code=204)

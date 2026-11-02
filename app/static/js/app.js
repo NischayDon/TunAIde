@@ -24,6 +24,25 @@ const App = {
     _uploadBtnRef: false,            // Synchronous guard for dashboard upload button
     _sharedUploadBtnRef: false,      // Synchronous guard for shared queue upload button
 
+    _getFilenameFromResponse: (res, fallbackFilename) => {
+        try {
+            const disposition = res.headers ? res.headers.get('content-disposition') : null;
+            if (disposition) {
+                const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+                if (utf8Match && utf8Match[1]) {
+                    return decodeURIComponent(utf8Match[1].trim());
+                }
+                const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+                if (filenameMatch && filenameMatch[1]) {
+                    return filenameMatch[1].trim();
+                }
+            }
+        } catch (e) {
+            console.warn('Could not parse content-disposition header', e);
+        }
+        return fallbackFilename || 'download';
+    },
+
     formatBytes: (bytes, decimals = 1) => {
         if (!bytes || bytes === 0) return '0 B';
         const k = 1024;
@@ -634,8 +653,12 @@ const App = {
     _claimModalItemId: null,
     _claimModalFilename: null,
 
-    showClaimModal: (itemId, filename) => {
+    showClaimModal: (itemId, filename = null) => {
         App._claimModalItemId = itemId;
+        if (!filename) {
+            const item = (App.state.sharedQueueItems || []).find(i => i.id === itemId);
+            filename = item ? item.original_filename : 'audio.mp3';
+        }
         App._claimModalFilename = filename;
         const modal = document.getElementById('claimModal');
         if (modal) modal.classList.remove('hidden');
@@ -667,9 +690,11 @@ const App = {
 
         // Download first, then claim
         try {
-            await App.downloadSharedAudio(itemId, filename);
-            App.hideClaimModal();
-            await App._performClaim(itemId);
+            const downloaded = await App.downloadSharedAudio(itemId, filename);
+            if (downloaded !== false) {
+                App.hideClaimModal();
+                await App._performClaim(itemId);
+            }
         } catch (e) {
             console.error('Download during claim failed:', e);
             alert('Failed to download audio during claim: ' + (e.message || 'Error'));
@@ -946,12 +971,12 @@ const App = {
     },
 
     downloadTranscript: async (triggerBtn) => {
-        if (!App.state.currentJob) return;
+        if (!App.state.currentJob) return false;
         const jobId = App.state.currentJob.id;
 
         // Duplicate guard
         const dlKey = `transcript-${jobId}`;
-        if (App._activeDownloads.has(dlKey)) return;
+        if (App._activeDownloads.has(dlKey)) return false;
         App._activeDownloads.add(dlKey);
 
         const downloadModal = document.getElementById('downloadModal');
@@ -966,27 +991,35 @@ const App = {
 
         try {
             const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/download`);
+            if (res.status === 401) {
+                alert("Session expired. Please log in again.");
+                App.logout();
+                return false;
+            }
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                const filename = `transcript-${App.state.currentJob.original_filename}.docx`;
-                a.download = filename;
+                const fallbackName = `transcript-${App.state.currentJob.original_filename || 'job'}.docx`;
+                a.download = App._getFilenameFromResponse(res, fallbackName);
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
 
-                // Clean up object URL after browser download has started, then close modal
-                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+                // Clean up object URL after browser download has started (60s to allow large files to stream)
+                setTimeout(() => window.URL.revokeObjectURL(url), 60000);
                 App.toggleDownloadModal(false);
+                return true;
             } else {
-                const err = await res.json();
-                alert("Download failed: " + (err.detail || "Unknown error"));
+                const err = await res.json().catch(() => ({}));
+                alert("Download failed: " + (err.detail || res.statusText || "Unknown error"));
+                return false;
             }
         } catch (e) {
             console.error("Download error", e);
             alert("Download failed: " + (e.message || "Network error"));
+            return false;
         } finally {
             App._activeDownloads.delete(dlKey);
             if (downloadBtn) {
@@ -1241,9 +1274,14 @@ const App = {
     },
 
     downloadSupportingDocument: async (jobId, docId, filename, triggerBtn) => {
+        if (!filename) {
+            const doc = (App.state.currentJob?.supporting_documents || []).find(d => d.id === docId);
+            filename = doc ? doc.original_filename : 'document';
+        }
+
         // Duplicate guard
         const dlKey = `supp-doc-${docId}`;
-        if (App._activeDownloads.has(dlKey)) return;
+        if (App._activeDownloads.has(dlKey)) return false;
         App._activeDownloads.add(dlKey);
 
         // Find and update the download button for this document
@@ -1259,9 +1297,15 @@ const App = {
 
         try {
             const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/documents/${docId}/download`);
+            if (res.status === 401) {
+                alert("Session expired. Please log in again.");
+                App.logout();
+                return false;
+            }
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
+                const finalFilename = App._getFilenameFromResponse(res, filename);
                 
                 // Check if text/pdf to open in new tab instead of forcing download
                 if (blob.type === 'application/pdf' || blob.type === 'text/plain') {
@@ -1269,18 +1313,22 @@ const App = {
                 } else {
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = filename;
+                    a.download = finalFilename;
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
                 }
-                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+                setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+                return true;
             } else {
-                alert('Download failed');
+                const err = await res.json().catch(() => ({}));
+                alert("Download failed: " + (err.detail || res.statusText || "Unknown error"));
+                return false;
             }
         } catch (e) {
             console.error("Download error", e);
             alert("Download failed: " + (e.message || "Network error"));
+            return false;
         } finally {
             App._activeDownloads.delete(dlKey);
             // Restore button (re-query in case of re-render)
@@ -1742,9 +1790,14 @@ const App = {
     },
 
     downloadSharedAudio: async (queueItemId, filename, triggerBtn) => {
+        if (!filename) {
+            const item = (App.state.sharedQueueItems || []).find(i => i.id === queueItemId);
+            filename = item ? item.original_filename : 'audio.mp3';
+        }
+
         // Duplicate guard
         const dlKey = `shared-${queueItemId}`;
-        if (App._activeDownloads.has(dlKey)) return;
+        if (App._activeDownloads.has(dlKey)) return false;
         App._activeDownloads.add(dlKey);
 
         // Find and update the download button for this row
@@ -1759,22 +1812,31 @@ const App = {
 
         try {
             const res = await App.authFetch(`${App.API_URL}/queue/${queueItemId}/download`);
+            if (res.status === 401) {
+                alert("Session expired. Please log in again.");
+                App.logout();
+                return false;
+            }
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = filename;
+                a.download = App._getFilenameFromResponse(res, filename);
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
-                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+                setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+                return true;
             } else {
-                alert("Download failed");
+                const err = await res.json().catch(() => ({}));
+                alert("Download failed: " + (err.detail || res.statusText || "Unknown error"));
+                return false;
             }
         } catch (e) {
             console.error("Download error", e);
             alert("Download failed: " + (e.message || "Network error"));
+            return false;
         } finally {
             App._activeDownloads.delete(dlKey);
             // Restore button (it may have been re-rendered by polling, so re-query)
@@ -1789,9 +1851,14 @@ const App = {
 
     // Download audio for a personal job (My Files page)
     downloadJobAudio: async (jobId, filename, triggerBtn) => {
+        if (!filename) {
+            const job = (App.state.jobs || []).find(j => j.id === jobId) || App.state.currentJob;
+            filename = job ? job.original_filename : 'audio.mp3';
+        }
+
         // Duplicate guard
         const dlKey = `job-audio-${jobId}`;
-        if (App._activeDownloads.has(dlKey)) return;
+        if (App._activeDownloads.has(dlKey)) return false;
         App._activeDownloads.add(dlKey);
 
         const downloadBtn = triggerBtn || document.getElementById(`downloadJobAudioBtn-${jobId}`);
@@ -1804,22 +1871,31 @@ const App = {
 
         try {
             const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/audio`);
+            if (res.status === 401) {
+                alert("Session expired. Please log in again.");
+                App.logout();
+                return false;
+            }
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = filename;
+                a.download = App._getFilenameFromResponse(res, filename);
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
-                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+                setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+                return true;
             } else {
-                alert("Download failed");
+                const err = await res.json().catch(() => ({}));
+                alert("Download failed: " + (err.detail || res.statusText || "Unknown error"));
+                return false;
             }
         } catch (e) {
             console.error("Download error", e);
             alert("Download failed: " + (e.message || "Network error"));
+            return false;
         } finally {
             App._activeDownloads.delete(dlKey);
             const restoredBtn = document.getElementById(`downloadJobAudioBtn-${jobId}`);

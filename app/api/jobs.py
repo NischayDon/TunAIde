@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
 import uuid
 import os
+from urllib.parse import quote
 from io import BytesIO
 from docx import Document
 from fastapi.responses import StreamingResponse, Response
@@ -40,6 +41,30 @@ class EmailRequest(BaseModel):
 
 class TranscriptUpdateRequest(BaseModel):
     text_content: str
+
+def get_content_disposition(filename: str, disposition_type: str = "attachment") -> str:
+    """
+    Generate RFC 6266 / RFC 5987 compliant Content-Disposition header.
+    ASCII filename is used as fallback, while filename*=UTF-8'' supports any unicode/emoji characters.
+    """
+    clean_name = filename.replace('"', '').replace('\r', '').replace('\n', '')
+    ascii_name = clean_name.encode('ascii', 'ignore').decode('ascii').strip()
+    if not ascii_name:
+        ascii_name = "download"
+    encoded_name = quote(clean_name, safe='')
+    return f"{disposition_type}; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded_name}"
+
+
+def get_job_or_404(db: Session, job_id: str, user: User) -> Job:
+    """Fetch a job by ID, respecting admin permissions."""
+    query = db.query(Job).filter(Job.id == job_id)
+    if not user.is_admin:
+        query = query.filter(Job.user_id == user.id)
+    job = query.first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
 
 def generate_docx(job: Job) -> BytesIO:
     document = Document()
@@ -114,9 +139,7 @@ def start_processing(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
 
     if job.status != JobStatus.UPLOADED.value and job.status != JobStatus.FAILED.value:
          if job.status in [JobStatus.QUEUED.value, JobStatus.PROCESSING.value, JobStatus.TRANSCRIBING.value]:
@@ -211,9 +234,7 @@ def update_ledger_entry(
     user: User = Depends(get_current_user)
 ):
     """Update ledger entry fields for a job."""
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     # Only update fields that were explicitly set (not None)
     update_dict = update_data.model_dump(exclude_unset=True)
@@ -255,9 +276,7 @@ def get_job(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     return job
 
 @router.get("/{job_id}/transcript", response_model=TranscriptResponse)
@@ -266,9 +285,7 @@ def get_transcript(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     if not job.transcript:
         raise HTTPException(status_code=404, detail="Transcript not ready")
@@ -281,9 +298,7 @@ def delete_job(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     # Soft delete
     job.status = JobStatus.TRASHED.value
@@ -297,9 +312,7 @@ def delete_job_permanent(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     # Delete audio file from disk
     storage_service.delete_file(job.storage_path)
@@ -318,9 +331,7 @@ def restore_job(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     if job.transcript:
         job.status = JobStatus.COMPLETED.value
@@ -338,9 +349,7 @@ async def email_job(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     if not job.transcript:
         raise HTTPException(status_code=400, detail="Transcript not ready")
@@ -375,9 +384,7 @@ def download_job(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     if not job.transcript:
         raise HTTPException(status_code=400, detail="Transcript not ready")
@@ -388,7 +395,7 @@ def download_job(
     return StreamingResponse(
         buffer, 
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": get_content_disposition(filename)}
     )
 
 
@@ -400,9 +407,7 @@ def stream_audio(
     user: User = Depends(get_current_user)
 ):
     """Stream the original uploaded audio file for browser playback."""
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     # Download from cloud storage to temp file
     try:
@@ -491,9 +496,7 @@ def update_transcript(
     user: User = Depends(get_current_user)
 ):
     """Update transcript text content (from inline editor)."""
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     if not job.transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
@@ -527,9 +530,7 @@ def upload_supporting_document(
     user: User = Depends(get_current_user)
 ):
     """Upload a supporting document for a ledger entry."""
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     try:
         # Save to storage
@@ -564,9 +565,7 @@ def list_supporting_documents(
     user: User = Depends(get_current_user)
 ):
     """List all supporting documents for a ledger entry."""
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     return job.supporting_documents
 
@@ -578,9 +577,7 @@ def download_supporting_document(
     user: User = Depends(get_current_user)
 ):
     """Download a specific supporting document."""
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     doc = db.query(SupportingDocument).filter(
         SupportingDocument.id == doc_id,
@@ -610,7 +607,7 @@ def download_supporting_document(
     return StreamingResponse(
         iterfile(),
         media_type=media_type,
-        headers={"Content-Disposition": f"attachment; filename={doc.original_filename}"}
+        headers={"Content-Disposition": get_content_disposition(doc.original_filename)}
     )
 
 @router.delete("/{job_id}/documents/{doc_id}", status_code=204)
@@ -621,9 +618,7 @@ def delete_supporting_document(
     user: User = Depends(get_current_user)
 ):
     """Delete a specific supporting document."""
-    job = db.query(Job).filter(Job.id == job_id, Job.user_id == user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = get_job_or_404(db, job_id, user)
     
     doc = db.query(SupportingDocument).filter(
         SupportingDocument.id == doc_id,

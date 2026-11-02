@@ -301,7 +301,7 @@ const Components = {
                 </td>
                 <td class="px-6 py-4 text-right relative">
                     <div class="flex items-center justify-end gap-2">
-                        <button id="sharedPlayBtn-${item.id}" onclick="App.playSharedAudio('${item.id}', '${item.original_filename.replace(/'/g, "\\'")}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition" title="Play">
+                        <button id="sharedPlayBtn-${item.id}" onclick="App.playSharedAudio('${item.id}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition" title="Play">
                             <svg id="sharedPlayIcon-${item.id}" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
                         </button>
                         ${(App._activeDownloads && App._activeDownloads.has('shared-' + item.id)) ? `
@@ -309,14 +309,14 @@ const Components = {
                                 ${ThinkingLoader.inline('working', '')}
                             </button>
                         ` : `
-                            <button id="sharedDlBtn-${item.id}" onclick="App.downloadSharedAudio('${item.id}', '${item.original_filename.replace(/'/g, "\\'")}', this)" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition" title="Download">
+                            <button id="sharedDlBtn-${item.id}" onclick="App.downloadSharedAudio('${item.id}', null, this)" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition" title="Download">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                             </button>
                         `}
                         <button onclick="event.stopPropagation(); App.deleteSharedQueueItem('${item.id}')" class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition" title="Delete">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
-                        <button onclick="App.showClaimModal('${item.id}', '${item.original_filename.replace(/'/g, "\\'")}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-100 transition shadow-sm">
+                        <button onclick="App.showClaimModal('${item.id}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-100 transition shadow-sm">
                             Claim Audio
                         </button>
                     </div>
@@ -708,7 +708,7 @@ const Components = {
                                 </span>
                             </button>
                         ` : `
-                            <button id="downloadJobAudioBtn-${job.id}" onclick="event.stopPropagation(); App.downloadJobAudio('${job.id}', '${job.original_filename.replace(/'/g, "\\\'")}', this)" class="text-left w-full block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                            <button id="downloadJobAudioBtn-${job.id}" onclick="event.stopPropagation(); App.downloadJobAudio('${job.id}', null, this)" class="text-left w-full block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                                 <span class="flex items-center gap-2">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                     Download Audio
@@ -926,7 +926,7 @@ const Components = {
                                     </div>
                                 </button>
                             ` : `
-                                <button id="suppDocDlBtn-${doc.id}" onclick="App.downloadSupportingDocument('${job.id}', '${doc.id}', '${doc.original_filename}', this)" class="flex items-center gap-3 bg-white border border-slate-200 shadow-sm px-4 py-3 rounded-lg hover:border-blue-300 hover:shadow-md transition group text-left">
+                                <button id="suppDocDlBtn-${doc.id}" onclick="App.downloadSupportingDocument('${job.id}', '${doc.id}', null, this)" class="flex items-center gap-3 bg-white border border-slate-200 shadow-sm px-4 py-3 rounded-lg hover:border-blue-300 hover:shadow-md transition group text-left">
                                     <div class="bg-blue-50 text-blue-600 p-2 rounded-md group-hover:bg-blue-100 transition">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                                     </div>
