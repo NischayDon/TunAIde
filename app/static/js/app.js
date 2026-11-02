@@ -18,6 +18,12 @@ const App = {
         loadingAdminStats: false
     },
 
+    // ── Per-operation loading guards (prevent duplicates & track active ops) ──
+    _activeDownloads: new Set(),     // Set of operation keys like "job-audio-{id}", "shared-{id}", "transcript-{id}"
+    _activeUploads: new Set(),       // Set of upload keys like "dashboard", "shared-queue", "supp-doc-{id}"
+    _uploadBtnRef: false,            // Synchronous guard for dashboard upload button
+    _sharedUploadBtnRef: false,      // Synchronous guard for shared queue upload button
+
     formatBytes: (bytes, decimals = 1) => {
         if (!bytes || bytes === 0) return '0 B';
         const k = 1024;
@@ -437,6 +443,20 @@ const App = {
         const file = input.files[0];
         if (!file) return;
 
+        // Synchronous duplicate guard
+        if (App._uploadBtnRef) return;
+        App._uploadBtnRef = true;
+        App._activeUploads.add('dashboard');
+
+        // Disable the upload trigger button and show loading state
+        const uploadTriggerBtn = input.previousElementSibling || document.querySelector('button[onclick*="fileInput"]');
+        const originalBtnHtml = uploadTriggerBtn ? uploadTriggerBtn.innerHTML : '';
+        if (uploadTriggerBtn) {
+            uploadTriggerBtn.disabled = true;
+            uploadTriggerBtn.innerHTML = `${ThinkingLoader.inline('working', 'Uploading…')}`;
+            ThinkingLoader.init(uploadTriggerBtn);
+        }
+
         const uploadArea = document.getElementById('uploadArea');
         const uploadText = document.getElementById('uploadText');
         const uploadSubText = document.getElementById('uploadSubText');
@@ -514,12 +534,33 @@ const App = {
         } finally {
             if (uploadArea) uploadArea.classList.add('hidden');
             input.value = '';
+            App._uploadBtnRef = false;
+            App._activeUploads.delete('dashboard');
+            // Restore upload button
+            if (uploadTriggerBtn) {
+                uploadTriggerBtn.disabled = false;
+                uploadTriggerBtn.innerHTML = originalBtnHtml;
+            }
         }
     },
 
     handleSharedQueueUpload: async (input) => {
         const file = input.files[0];
         if (!file) return;
+
+        // Synchronous duplicate guard
+        if (App._sharedUploadBtnRef) return;
+        App._sharedUploadBtnRef = true;
+        App._activeUploads.add('shared-queue');
+
+        // Disable the shared upload trigger button and show loading state
+        const sharedUploadTriggerBtn = document.querySelector('button[onclick*="sharedFileInput"]');
+        const originalSharedBtnHtml = sharedUploadTriggerBtn ? sharedUploadTriggerBtn.innerHTML : '';
+        if (sharedUploadTriggerBtn) {
+            sharedUploadTriggerBtn.disabled = true;
+            sharedUploadTriggerBtn.innerHTML = `${ThinkingLoader.inline('working', 'Uploading…')}`;
+            ThinkingLoader.init(sharedUploadTriggerBtn);
+        }
 
         const uploadArea = document.getElementById('sharedUploadArea');
         const uploadText = document.getElementById('sharedUploadText');
@@ -579,6 +620,13 @@ const App = {
         } finally {
             if (uploadArea) uploadArea.classList.add('hidden');
             input.value = '';
+            App._sharedUploadBtnRef = false;
+            App._activeUploads.delete('shared-queue');
+            // Restore shared upload button
+            if (sharedUploadTriggerBtn) {
+                sharedUploadTriggerBtn.disabled = false;
+                sharedUploadTriggerBtn.innerHTML = originalSharedBtnHtml;
+            }
         }
     },
 
@@ -600,28 +648,66 @@ const App = {
         if (modal) modal.classList.add('hidden');
     },
 
-    claimWithDownload: async () => {
+    claimWithDownload: async (triggerBtn) => {
         const itemId = App._claimModalItemId;
         const filename = App._claimModalFilename;
         if (!itemId) return;
-        App.hideClaimModal();
+
+        const opKey = `claim-dl-${itemId}`;
+        if (App._activeDownloads.has(opKey)) return;
+        App._activeDownloads.add(opKey);
+
+        const claimBtn = triggerBtn || document.getElementById('claimWithDlBtn');
+        const originalBtnHtml = claimBtn ? claimBtn.innerHTML : '';
+        if (claimBtn) {
+            claimBtn.disabled = true;
+            claimBtn.innerHTML = `${ThinkingLoader.inline('working', 'Preparing…')}`;
+            ThinkingLoader.init(claimBtn);
+        }
 
         // Download first, then claim
         try {
             await App.downloadSharedAudio(itemId, filename);
+            App.hideClaimModal();
+            await App._performClaim(itemId);
         } catch (e) {
             console.error('Download during claim failed:', e);
+            alert('Failed to download audio during claim: ' + (e.message || 'Error'));
+        } finally {
+            App._activeDownloads.delete(opKey);
+            if (claimBtn) {
+                claimBtn.disabled = false;
+                claimBtn.innerHTML = originalBtnHtml;
+            }
         }
-
-        // Now claim
-        await App._performClaim(itemId);
     },
 
-    claimWithoutDownload: async () => {
+    claimWithoutDownload: async (triggerBtn) => {
         const itemId = App._claimModalItemId;
         if (!itemId) return;
-        App.hideClaimModal();
-        await App._performClaim(itemId);
+
+        const opKey = `claim-${itemId}`;
+        if (App._activeUploads.has(opKey)) return;
+        App._activeUploads.add(opKey);
+
+        const claimBtn = triggerBtn || document.getElementById('claimWithoutDlBtn');
+        const originalBtnHtml = claimBtn ? claimBtn.innerHTML : '';
+        if (claimBtn) {
+            claimBtn.disabled = true;
+            claimBtn.innerHTML = `${ThinkingLoader.inline('working', 'Claiming…')}`;
+            ThinkingLoader.init(claimBtn);
+        }
+
+        try {
+            App.hideClaimModal();
+            await App._performClaim(itemId);
+        } finally {
+            App._activeUploads.delete(opKey);
+            if (claimBtn) {
+                claimBtn.disabled = false;
+                claimBtn.innerHTML = originalBtnHtml;
+            }
+        }
     },
 
     _performClaim: async (itemId) => {
@@ -859,16 +945,22 @@ const App = {
         }
     },
 
-    downloadTranscript: async () => {
+    downloadTranscript: async (triggerBtn) => {
         if (!App.state.currentJob) return;
         const jobId = App.state.currentJob.id;
+
+        // Duplicate guard
+        const dlKey = `transcript-${jobId}`;
+        if (App._activeDownloads.has(dlKey)) return;
+        App._activeDownloads.add(dlKey);
+
         const downloadModal = document.getElementById('downloadModal');
-        const downloadBtn = downloadModal ? downloadModal.querySelector('button.bg-blue-600') : null;
+        const downloadBtn = triggerBtn || (downloadModal ? (document.getElementById('downloadTranscriptBtn') || downloadModal.querySelector('button.bg-blue-600')) : null);
         const originalBtnHtml = downloadBtn ? downloadBtn.innerHTML : '';
 
         if (downloadBtn) {
             downloadBtn.disabled = true;
-            downloadBtn.innerHTML = `${ThinkingLoader.inline('shaping', 'Generating DOCX…')}`;
+            downloadBtn.innerHTML = `${ThinkingLoader.inline('working', 'Preparing…')}`;
             ThinkingLoader.init(downloadBtn);
         }
 
@@ -885,8 +977,8 @@ const App = {
                 a.click();
                 a.remove();
 
-                // Cleanup and close modal
-                window.URL.revokeObjectURL(url);
+                // Clean up object URL after browser download has started, then close modal
+                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
                 App.toggleDownloadModal(false);
             } else {
                 const err = await res.json();
@@ -894,8 +986,9 @@ const App = {
             }
         } catch (e) {
             console.error("Download error", e);
-            alert("Download failed");
+            alert("Download failed: " + (e.message || "Network error"));
         } finally {
+            App._activeDownloads.delete(dlKey);
             if (downloadBtn) {
                 downloadBtn.disabled = false;
                 downloadBtn.innerHTML = originalBtnHtml;
@@ -1088,6 +1181,11 @@ const App = {
             alert('Please select a file');
             return;
         }
+
+        // Duplicate guard
+        const uploadKey = `supp-doc-${jobId}`;
+        if (App._activeUploads.has(uploadKey)) return;
+        App._activeUploads.add(uploadKey);
         
         const formData = new FormData();
         formData.append('file', file);
@@ -1096,8 +1194,12 @@ const App = {
         }
         
         const btn = document.getElementById('uploadSuppBtn');
-        btn.disabled = true;
-        btn.innerText = 'Uploading...';
+        const originalBtnHtml = btn ? btn.innerHTML : 'Upload';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `${ThinkingLoader.inline('working', 'Uploading…')}`;
+            ThinkingLoader.init(btn);
+        }
         
         try {
             const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/documents`, {
@@ -1119,10 +1221,11 @@ const App = {
             console.error(e);
             alert('Upload error');
         } finally {
+            App._activeUploads.delete(uploadKey);
             App.toggleSuppDocModal(false);
             if (btn) {
                 btn.disabled = false;
-                btn.innerText = 'Upload';
+                btn.innerHTML = originalBtnHtml;
             }
             if (fileInput) fileInput.value = '';
             if (descInput) descInput.value = '';
@@ -1137,7 +1240,23 @@ const App = {
         }
     },
 
-    downloadSupportingDocument: async (jobId, docId, filename) => {
+    downloadSupportingDocument: async (jobId, docId, filename, triggerBtn) => {
+        // Duplicate guard
+        const dlKey = `supp-doc-${docId}`;
+        if (App._activeDownloads.has(dlKey)) return;
+        App._activeDownloads.add(dlKey);
+
+        // Find and update the download button for this document
+        const docBtn = triggerBtn || document.getElementById(`suppDocDlBtn-${docId}`) || document.querySelector(`button[onclick*="downloadSupportingDocument"][onclick*="${docId}"]`);
+        const originalDocBtnHtml = docBtn ? docBtn.innerHTML : '';
+        if (docBtn) {
+            docBtn.disabled = true;
+            docBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            const iconBox = docBtn.querySelector('.bg-blue-50') || docBtn;
+            iconBox.innerHTML = `${ThinkingLoader.inline('working', '')}`;
+            ThinkingLoader.init(iconBox);
+        }
+
         try {
             const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/documents/${docId}/download`);
             if (res.ok) {
@@ -1161,7 +1280,16 @@ const App = {
             }
         } catch (e) {
             console.error("Download error", e);
-            alert("Download failed");
+            alert("Download failed: " + (e.message || "Network error"));
+        } finally {
+            App._activeDownloads.delete(dlKey);
+            // Restore button (re-query in case of re-render)
+            const restoredDocBtn = document.getElementById(`suppDocDlBtn-${docId}`) || document.querySelector(`button[onclick*="downloadSupportingDocument"][onclick*="${docId}"]`);
+            if (restoredDocBtn) {
+                restoredDocBtn.disabled = false;
+                restoredDocBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                restoredDocBtn.innerHTML = originalDocBtnHtml;
+            }
         }
     },
 
@@ -1613,7 +1741,22 @@ const App = {
         }
     },
 
-    downloadSharedAudio: async (queueItemId, filename) => {
+    downloadSharedAudio: async (queueItemId, filename, triggerBtn) => {
+        // Duplicate guard
+        const dlKey = `shared-${queueItemId}`;
+        if (App._activeDownloads.has(dlKey)) return;
+        App._activeDownloads.add(dlKey);
+
+        // Find and update the download button for this row
+        const downloadBtn = triggerBtn || document.getElementById(`sharedDlBtn-${queueItemId}`) || document.querySelector(`button[onclick*="downloadSharedAudio"][onclick*="${queueItemId}"]`);
+        const originalBtnHtml = downloadBtn ? downloadBtn.innerHTML : '';
+        if (downloadBtn) {
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = `${ThinkingLoader.inline('working', '')}`;
+            downloadBtn.title = 'Preparing download…';
+            ThinkingLoader.init(downloadBtn);
+        }
+
         try {
             const res = await App.authFetch(`${App.API_URL}/queue/${queueItemId}/download`);
             if (res.ok) {
@@ -1631,12 +1774,34 @@ const App = {
             }
         } catch (e) {
             console.error("Download error", e);
-            alert("Download failed");
+            alert("Download failed: " + (e.message || "Network error"));
+        } finally {
+            App._activeDownloads.delete(dlKey);
+            // Restore button (it may have been re-rendered by polling, so re-query)
+            const restoredBtn = document.getElementById(`sharedDlBtn-${queueItemId}`) || document.querySelector(`button[onclick*="downloadSharedAudio"][onclick*="${queueItemId}"]`);
+            if (restoredBtn) {
+                restoredBtn.disabled = false;
+                restoredBtn.innerHTML = originalBtnHtml;
+                restoredBtn.title = 'Download';
+            }
         }
     },
 
     // Download audio for a personal job (My Files page)
-    downloadJobAudio: async (jobId, filename) => {
+    downloadJobAudio: async (jobId, filename, triggerBtn) => {
+        // Duplicate guard
+        const dlKey = `job-audio-${jobId}`;
+        if (App._activeDownloads.has(dlKey)) return;
+        App._activeDownloads.add(dlKey);
+
+        const downloadBtn = triggerBtn || document.getElementById(`downloadJobAudioBtn-${jobId}`);
+        const originalBtnHtml = downloadBtn ? downloadBtn.innerHTML : '';
+        if (downloadBtn) {
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = `<span class="flex items-center gap-2">${ThinkingLoader.inline('working', 'Preparing…')}</span>`;
+            ThinkingLoader.init(downloadBtn);
+        }
+
         try {
             const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/audio`);
             if (res.ok) {
@@ -1654,7 +1819,14 @@ const App = {
             }
         } catch (e) {
             console.error("Download error", e);
-            alert("Download failed");
+            alert("Download failed: " + (e.message || "Network error"));
+        } finally {
+            App._activeDownloads.delete(dlKey);
+            const restoredBtn = document.getElementById(`downloadJobAudioBtn-${jobId}`);
+            if (restoredBtn) {
+                restoredBtn.disabled = false;
+                restoredBtn.innerHTML = originalBtnHtml;
+            }
         }
     },
 

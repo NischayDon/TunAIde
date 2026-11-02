@@ -441,6 +441,16 @@ input[type=range]::-webkit-slider-runnable-track {
     line-height: 1.3;
 }
 
+/* Inherit button styling when inside buttons */
+button .thinking-orb-container {
+    color: inherit;
+}
+button .thinking-orb-label {
+    color: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+}
+
 /* ── Inline variant ────────────────────────────────── */
 .thinking-orb-inline {
     display: inline-flex;

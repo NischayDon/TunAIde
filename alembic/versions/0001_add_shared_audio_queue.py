@@ -6,6 +6,7 @@ Create Date: 2026-08-17 21:20:00.000000
 
 """
 from alembic import op
+# pyrefly: ignore[missing-import]
 import sqlalchemy as sa
 
 
@@ -16,6 +17,7 @@ branch_labels = None
 depends_on = None
 
 
+# pyrefly: ignore[missing-import]
 from sqlalchemy.engine.reflection import Inspector
 
 def upgrade() -> None:

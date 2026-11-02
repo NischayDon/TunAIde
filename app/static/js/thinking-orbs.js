@@ -82,6 +82,11 @@ const ThinkingLoader = (() => {
         const dark = detectDark();
 
         for (const inst of _instances) {
+            if (!inst.canvas || !inst.canvas.isConnected) {
+                _instances.delete(inst);
+                if (inst._observer) inst._observer.disconnect();
+                continue;
+            }
             if (!inst._visible || inst._paused) continue;
             _drawInstance(inst, elapsed, dark);
         }

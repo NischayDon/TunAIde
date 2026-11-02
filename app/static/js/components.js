@@ -304,9 +304,15 @@ const Components = {
                         <button id="sharedPlayBtn-${item.id}" onclick="App.playSharedAudio('${item.id}', '${item.original_filename.replace(/'/g, "\\'")}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition" title="Play">
                             <svg id="sharedPlayIcon-${item.id}" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
                         </button>
-                        <button onclick="App.downloadSharedAudio('${item.id}', '${item.original_filename.replace(/'/g, "\\'")}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition" title="Download">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        </button>
+                        ${(App._activeDownloads && App._activeDownloads.has('shared-' + item.id)) ? `
+                            <button id="sharedDlBtn-${item.id}" disabled class="p-1.5 text-blue-600 bg-blue-50 rounded-md cursor-not-allowed" title="Preparing download…">
+                                ${ThinkingLoader.inline('working', '')}
+                            </button>
+                        ` : `
+                            <button id="sharedDlBtn-${item.id}" onclick="App.downloadSharedAudio('${item.id}', '${item.original_filename.replace(/'/g, "\\'")}', this)" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition" title="Download">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            </button>
+                        `}
                         <button onclick="event.stopPropagation(); App.deleteSharedQueueItem('${item.id}')" class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition" title="Delete">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
@@ -324,10 +330,16 @@ const Components = {
                 <!-- Header -->
                 <div class="flex justify-between items-center mb-8">
                     <h2 class="text-2xl font-semibold text-slate-900">Shared Audio Queue</h2>
-                    <button onclick="document.getElementById('sharedFileInput').click()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        Upload to Shared Queue
-                    </button>
+                    ${(App._activeUploads && App._activeUploads.has('shared-queue')) ? `
+                        <button id="sharedUploadBtn" disabled class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium opacity-75 cursor-not-allowed flex items-center gap-2 shadow-sm">
+                            ${ThinkingLoader.inline('working', 'Uploading…')}
+                        </button>
+                    ` : `
+                        <button id="sharedUploadBtn" onclick="document.getElementById('sharedFileInput').click()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            <span>Upload to Shared Queue</span>
+                        </button>
+                    `}
                     <input type="file" id="sharedFileInput" class="hidden" accept="audio/*,video/*" onchange="App.handleSharedQueueUpload(this)">
                 </div>
 
@@ -396,12 +408,12 @@ const Components = {
                 </div>
                 <p class="text-sm text-slate-600 mb-6">Would you like to download the audio file while claiming it?</p>
                 <div class="space-y-3">
-                    <button onclick="App.claimWithDownload()" class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm">
+                    <button id="claimWithDlBtn" onclick="App.claimWithDownload(this)" class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        Claim & Download
+                        <span>Claim & Download</span>
                     </button>
-                    <button onclick="App.claimWithoutDownload()" class="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-200 transition border border-slate-200">
-                        Claim Without Downloading
+                    <button id="claimWithoutDlBtn" onclick="App.claimWithoutDownload(this)" class="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-200 transition border border-slate-200">
+                        <span>Claim Without Downloading</span>
                     </button>
                 </div>
             </div>
@@ -421,10 +433,15 @@ const Components = {
                 </button>
              `;
         } else {
-            actionButton = `
-                <button onclick="document.getElementById('fileInput').click()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm flex items-center gap-2">
+            const isUploading = App._activeUploads && App._activeUploads.has('dashboard');
+            actionButton = isUploading ? `
+                <button id="uploadNewBtn" disabled class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium opacity-75 cursor-not-allowed flex items-center gap-2 shadow-sm">
+                    ${ThinkingLoader.inline('working', 'Uploading…')}
+                </button>
+            ` : `
+                <button id="uploadNewBtn" onclick="document.getElementById('fileInput').click()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    New Transcription
+                    <span>New Transcription</span>
                 </button>
              `;
         }
@@ -621,8 +638,8 @@ const Components = {
                         <button onclick="App.toggleDownloadModal(false)" class="text-slate-600 hover:text-slate-900 text-sm font-medium px-4 py-2">
                             Cancel
                         </button>
-                        <button onclick="App.downloadTranscript()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition">
-                            Download DOCX
+                        <button id="downloadTranscriptBtn" onclick="App.downloadTranscript(this)" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition flex items-center justify-center gap-2">
+                            <span>Download DOCX</span>
                         </button>
                     </div>
                 </div>
@@ -684,12 +701,20 @@ const Components = {
                         <button onclick="event.stopPropagation(); App.restoreJob('${job.id}')" class="text-left w-full block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Restore</button>
                         <button onclick="event.stopPropagation(); App.deleteJobPermanent('${job.id}')" class="text-left w-full block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete Permanently</button>
                     ` : `
-                        <button onclick="event.stopPropagation(); App.downloadJobAudio('${job.id}', '${job.original_filename.replace(/'/g, "\\\'")}')" class="text-left w-full block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                            <span class="flex items-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                Download Audio
-                            </span>
-                        </button>
+                        ${(App._activeDownloads && App._activeDownloads.has('job-audio-' + job.id)) ? `
+                            <button id="downloadJobAudioBtn-${job.id}" disabled class="text-left w-full block px-4 py-2 text-sm text-slate-400 cursor-not-allowed">
+                                <span class="flex items-center gap-2">
+                                    ${ThinkingLoader.inline('working', 'Preparing…')}
+                                </span>
+                            </button>
+                        ` : `
+                            <button id="downloadJobAudioBtn-${job.id}" onclick="event.stopPropagation(); App.downloadJobAudio('${job.id}', '${job.original_filename.replace(/'/g, "\\\'")}', this)" class="text-left w-full block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                <span class="flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                    Download Audio
+                                </span>
+                            </button>
+                        `}
                         <button onclick="event.stopPropagation(); App.deleteJob('${job.id}')" class="text-left w-full block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete</button>
                     `}
                 </div>
@@ -888,17 +913,30 @@ const Components = {
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         </button>
                         
-                        ${docs.map(doc => `
-                            <button onclick="App.downloadSupportingDocument('${job.id}', '${doc.id}', '${doc.original_filename}')" class="flex items-center gap-3 bg-white border border-slate-200 shadow-sm px-4 py-3 rounded-lg hover:border-blue-300 hover:shadow-md transition group text-left">
-                                <div class="bg-blue-50 text-blue-600 p-2 rounded-md group-hover:bg-blue-100 transition">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                                </div>
-                                <div>
-                                    <p class="font-semibold text-slate-900 text-sm truncate max-w-[200px]">${doc.description || doc.original_filename}</p>
-                                    <p class="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">${doc.original_filename}</p>
-                                </div>
-                            </button>
-                        `).join('')}
+                        ${docs.map(doc => {
+                            const isDocDownloading = App._activeDownloads && App._activeDownloads.has('supp-doc-' + doc.id);
+                            return isDocDownloading ? `
+                                <button id="suppDocDlBtn-${doc.id}" disabled class="flex items-center gap-3 bg-white border border-blue-200 shadow-sm px-4 py-3 rounded-lg text-left opacity-75 cursor-not-allowed">
+                                    <div class="bg-blue-50 text-blue-600 p-2 rounded-md flex items-center justify-center">
+                                        ${ThinkingLoader.inline('working', '')}
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-slate-900 text-sm truncate max-w-[200px]">Preparing…</p>
+                                        <p class="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">${doc.original_filename}</p>
+                                    </div>
+                                </button>
+                            ` : `
+                                <button id="suppDocDlBtn-${doc.id}" onclick="App.downloadSupportingDocument('${job.id}', '${doc.id}', '${doc.original_filename}', this)" class="flex items-center gap-3 bg-white border border-slate-200 shadow-sm px-4 py-3 rounded-lg hover:border-blue-300 hover:shadow-md transition group text-left">
+                                    <div class="bg-blue-50 text-blue-600 p-2 rounded-md group-hover:bg-blue-100 transition">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-slate-900 text-sm truncate max-w-[200px]">${doc.description || doc.original_filename}</p>
+                                        <p class="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">${doc.original_filename}</p>
+                                    </div>
+                                </button>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
             </div>
