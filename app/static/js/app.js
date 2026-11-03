@@ -1,11 +1,386 @@
+/**
+ * SharedAudioQueueManager
+ *
+ * Centralized state machine & playback controller for the Shared Audio Queue.
+ *
+ * States per queue entry:
+ *   IDLE          - Not playing, playback position at 0
+ *   INITIALIZING  - Fetching audio blob / initializing Audio instance / awaiting play()
+ *   PLAYING       - Audio actively playing
+ *   PAUSING       - Audio is pausing
+ *   PAUSED        - Audio paused, playback position preserved
+ *   STOPPING      - Global or individual stop in progress
+ *   ERROR         - Error occurred during fetch/decoding
+ *
+ * Transitions:
+ *   IDLE         -> INITIALIZING -> PLAYING
+ *   PLAYING      -> PAUSING      -> PAUSED
+ *   PAUSED       -> INITIALIZING -> PLAYING
+ *   PLAYING      -> STOPPING     -> IDLE
+ *   PAUSED       -> STOPPING     -> IDLE
+ *   INITIALIZING -> ERROR
+ *   PLAYING      -> ERROR
+ *   STOPPING     -> IDLE
+ */
+class SharedAudioQueueManager {
+    constructor() {
+        this._instances = new Map(); // itemId -> { id, state, audio, blobUrl, position, opId, error }
+        this._activePlayingId = null;
+        this._isGlobalStopping = false;
+        this._globalOpId = 0;
+    }
+
+    getInstance(itemId) {
+        if (!this._instances.has(itemId)) {
+            this._instances.set(itemId, {
+                id: itemId,
+                state: 'IDLE',
+                audio: null,
+                blobUrl: null,
+                position: 0,
+                opId: 0,
+                error: null
+            });
+        }
+        return this._instances.get(itemId);
+    }
+
+    getItemState(itemId) {
+        if (!this._instances.has(itemId)) return 'IDLE';
+        return this._instances.get(itemId).state;
+    }
+
+    isGlobalStopping() {
+        return this._isGlobalStopping;
+    }
+
+    getPlaybackPosition(itemId) {
+        const inst = this._instances.get(itemId);
+        if (!inst) return 0;
+        if (inst.state === 'IDLE') return 0;
+        if (inst.audio && !inst.audio.paused) {
+            return inst.audio.currentTime || 0;
+        }
+        return inst.position || 0;
+    }
+
+    async handlePlayPause(itemId) {
+        const state = this.getItemState(itemId);
+        if (state === 'PLAYING') {
+            return await this.pause(itemId);
+        } else if (state === 'IDLE' || state === 'PAUSED' || state === 'ERROR') {
+            return await this.play(itemId);
+        }
+        // When INITIALIZING, PAUSING, or STOPPING, button is disabled; ignore clicks
+    }
+
+    async play(itemId) {
+        const inst = this.getInstance(itemId);
+
+        // Guard against duplicate concurrent calls while initializing or already playing
+        if (inst.state === 'INITIALIZING' || inst.state === 'PLAYING') {
+            return;
+        }
+
+        // Single-audio playback constraint:
+        // If another item is currently playing or initializing, pause it first
+        if (this._activePlayingId && this._activePlayingId !== itemId) {
+            await this.pause(this._activePlayingId);
+        }
+
+        // Advance operation counter for cancellation tokens
+        inst.opId = (inst.opId || 0) + 1;
+        const currentOpId = inst.opId;
+        const currentGlobalOpId = this._globalOpId;
+
+        // Transition to INITIALIZING
+        inst.state = 'INITIALIZING';
+        inst.error = null;
+        this.updateEntryUI(itemId);
+
+        try {
+            // Step 1: Ensure audio instance and blob URL are ready
+            if (!inst.audio || !inst.blobUrl) {
+                const res = await App.authFetch(`${App.API_URL}/queue/${itemId}/audio`);
+                if (!res.ok) {
+                    throw new Error(`Failed to load audio (${res.status})`);
+                }
+                const blob = await res.blob();
+
+                // Check cancellation
+                if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping) {
+                    return;
+                }
+
+                const createUrl = (typeof URL !== 'undefined' && URL.createObjectURL)
+                    ? URL.createObjectURL.bind(URL)
+                    : (typeof window !== 'undefined' && window.URL && window.URL.createObjectURL)
+                    ? window.URL.createObjectURL.bind(window.URL)
+                    : (b) => `blob:mock-${itemId}`;
+
+                inst.blobUrl = createUrl(blob);
+
+                const AudioConstructor = (typeof Audio !== 'undefined')
+                    ? Audio
+                    : (typeof window !== 'undefined' && window.Audio)
+                    ? window.Audio
+                    : null;
+
+                if (!AudioConstructor) {
+                    throw new Error('Audio API not available in this environment');
+                }
+
+                const audio = new AudioConstructor(inst.blobUrl);
+                inst.audio = audio;
+
+                // Event listener: Audio reached the end naturally
+                audio.addEventListener('ended', () => {
+                    try {
+                        audio.currentTime = 0;
+                    } catch (e) {}
+                    inst.position = 0;
+                    inst.state = 'IDLE';
+                    if (this._activePlayingId === itemId) {
+                        this._activePlayingId = null;
+                    }
+                    this.updateEntryUI(itemId);
+                });
+
+                // Event listener: Media error
+                audio.addEventListener('error', (e) => {
+                    if (inst.state !== 'STOPPING' && inst.state !== 'IDLE') {
+                        inst.state = 'ERROR';
+                        inst.error = 'Audio playback error';
+                        if (this._activePlayingId === itemId) {
+                            this._activePlayingId = null;
+                        }
+                        this.updateEntryUI(itemId);
+                    }
+                });
+            }
+
+            // Check cancellation after audio preparation
+            if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping) {
+                if (inst.audio) {
+                    try { inst.audio.pause(); } catch (e) {}
+                }
+                return;
+            }
+
+            // Step 2: Set start or resume position
+            if (inst.position > 0) {
+                try {
+                    inst.audio.currentTime = inst.position;
+                } catch (e) {
+                    console.warn('Could not seek audio position:', e);
+                }
+            } else {
+                try {
+                    inst.audio.currentTime = 0;
+                } catch (e) {}
+            }
+
+            // Step 3: Trigger playback
+            const playPromise = inst.audio.play();
+            if (playPromise !== undefined) {
+                await playPromise;
+            }
+
+            // Check cancellation after play promise resolves
+            if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping) {
+                if (inst.audio) {
+                    try {
+                        inst.audio.pause();
+                        if (inst.state === 'STOPPING' || inst.state === 'IDLE') {
+                            inst.audio.currentTime = 0;
+                            inst.position = 0;
+                        }
+                    } catch (e) {}
+                }
+                return;
+            }
+
+            // Step 4: Transition to PLAYING
+            inst.state = 'PLAYING';
+            this._activePlayingId = itemId;
+            this.updateEntryUI(itemId);
+
+        } catch (err) {
+            // If operation was cancelled or aborted by pause/stop, do not report an error
+            if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping ||
+                inst.state === 'PAUSED' || inst.state === 'PAUSING' || inst.state === 'STOPPING' || inst.state === 'IDLE' ||
+                (err && err.name === 'AbortError')) {
+                if (inst.state === 'STOPPING' || inst.state === 'IDLE') {
+                    inst.state = 'IDLE';
+                    inst.position = 0;
+                    this.updateEntryUI(itemId);
+                }
+                return;
+            }
+
+            console.error(`Audio playback error for item ${itemId}:`, err);
+            inst.state = 'ERROR';
+            inst.error = err.message || 'Playback failed';
+            if (this._activePlayingId === itemId) {
+                this._activePlayingId = null;
+            }
+            this.updateEntryUI(itemId);
+        }
+    }
+
+    async pause(itemId) {
+        const inst = this._instances.get(itemId);
+        if (!inst) return;
+
+        if (inst.state !== 'PLAYING' && inst.state !== 'INITIALIZING') {
+            return;
+        }
+
+        inst.opId = (inst.opId || 0) + 1;
+        inst.state = 'PAUSING';
+        this.updateEntryUI(itemId);
+
+        if (inst.audio) {
+            try {
+                inst.audio.pause();
+                inst.position = inst.audio.currentTime || inst.position || 0;
+            } catch (e) {
+                console.warn('Error pausing audio:', e);
+            }
+        }
+
+        if (this._activePlayingId === itemId) {
+            this._activePlayingId = null;
+        }
+
+        inst.state = 'PAUSED';
+        this.updateEntryUI(itemId);
+    }
+
+    async handleGlobalStop(triggerItemId) {
+        this._isGlobalStopping = true;
+        this._globalOpId = (this._globalOpId || 0) + 1;
+
+        // Mark active or in-flight instances as STOPPING
+        for (const [id, inst] of this._instances.entries()) {
+            if (inst.state === 'PLAYING' || inst.state === 'PAUSING' || inst.state === 'PAUSED' || inst.state === 'INITIALIZING') {
+                inst.state = 'STOPPING';
+                inst.opId = (inst.opId || 0) + 1;
+            }
+        }
+
+        // Update UI to reflect stopping state immediately
+        this.updateAllUI();
+
+        // Stop all initialized audio instances concurrently using Promise.allSettled
+        const stopPromises = Array.from(this._instances.values()).map(async (inst) => {
+            if (inst.audio) {
+                try {
+                    inst.audio.pause();
+                    inst.audio.currentTime = 0;
+                } catch (e) {
+                    console.warn('Error resetting audio instance:', inst.id, e);
+                }
+            }
+            inst.position = 0;
+            inst.state = 'IDLE';
+            inst.error = null;
+        });
+
+        await Promise.allSettled(stopPromises);
+
+        this._activePlayingId = null;
+        this._isGlobalStopping = false;
+
+        // Update all buttons back to idle state
+        this.updateAllUI();
+    }
+
+    removeInstance(itemId) {
+        if (!this._instances.has(itemId)) return;
+        const inst = this._instances.get(itemId);
+        if (inst.audio) {
+            try { inst.audio.pause(); } catch (e) {}
+            inst.audio = null;
+        }
+        if (inst.blobUrl) {
+            const revoke = (typeof URL !== 'undefined' && URL.revokeObjectURL)
+                ? URL.revokeObjectURL.bind(URL)
+                : (typeof window !== 'undefined' && window.URL && window.URL.revokeObjectURL)
+                ? window.URL.revokeObjectURL.bind(window.URL)
+                : null;
+            if (revoke) {
+                try { revoke(inst.blobUrl); } catch (e) {}
+            }
+            inst.blobUrl = null;
+        }
+        this._instances.delete(itemId);
+        if (this._activePlayingId === itemId) {
+            this._activePlayingId = null;
+        }
+    }
+
+    cleanupAll() {
+        const revoke = (typeof URL !== 'undefined' && URL.revokeObjectURL)
+            ? URL.revokeObjectURL.bind(URL)
+            : (typeof window !== 'undefined' && window.URL && window.URL.revokeObjectURL)
+            ? window.URL.revokeObjectURL.bind(window.URL)
+            : null;
+
+        for (const [itemId, inst] of this._instances.entries()) {
+            if (inst.audio) {
+                try { inst.audio.pause(); } catch (e) {}
+                inst.audio = null;
+            }
+            if (inst.blobUrl && revoke) {
+                try { revoke(inst.blobUrl); } catch (e) {}
+                inst.blobUrl = null;
+            }
+        }
+        this._instances.clear();
+        this._activePlayingId = null;
+        this._isGlobalStopping = false;
+    }
+
+    syncWithQueueItems(currentItems) {
+        if (!Array.isArray(currentItems)) return;
+        const currentIds = new Set(currentItems.map(item => item.id));
+        for (const itemId of this._instances.keys()) {
+            if (!currentIds.has(itemId)) {
+                this.removeInstance(itemId);
+            }
+        }
+    }
+
+    updateEntryUI(itemId) {
+        if (typeof document === 'undefined') return;
+        const container = document.getElementById(`sq-playback-controls-${itemId}`);
+        if (container && typeof Components !== 'undefined' && Components.SharedQueuePlaybackControls) {
+            container.outerHTML = Components.SharedQueuePlaybackControls(itemId);
+        }
+    }
+
+    updateAllUI() {
+        if (typeof document === 'undefined') return;
+        const containers = document.querySelectorAll('[id^="sq-playback-controls-"]');
+        containers.forEach(el => {
+            const id = el.id.replace('sq-playback-controls-', '');
+            if (typeof Components !== 'undefined' && Components.SharedQueuePlaybackControls) {
+                el.outerHTML = Components.SharedQueuePlaybackControls(id);
+            }
+        });
+    }
+}
+
 const App = {
+    sharedAudioQueueManager: new SharedAudioQueueManager(),
     state: {
         jobs: [],
         currentJob: null,
         view: 'dashboard', // 'dashboard' | 'transcript' | 'trash' | 'admin' | 'login' | 'ledger' | 'ledger-detail'
         activeActionMenu: null,
-        token: localStorage.getItem('access_token'),
-        user: JSON.parse(localStorage.getItem('user_info') || 'null'),
+        token: (typeof localStorage !== 'undefined') ? localStorage.getItem('access_token') : null,
+        user: (typeof localStorage !== 'undefined') ? JSON.parse(localStorage.getItem('user_info') || 'null') : null,
         adminStats: [],
         isEditing: false,
         audioPlaybackRate: 1.0,
@@ -15,7 +390,14 @@ const App = {
         sharedQueueItems: [],
         loadingJobs: true,
         loadingSharedQueue: false,
-        loadingAdminStats: false
+        loadingAdminStats: false,
+        clients: [],
+        clientCount: 0,
+        currentClient: null,
+        ledgerSearchQuery: '',
+        editingClientId: null,
+        activeProfileSection: null,
+        loadingClients: false
     },
 
     // ── Per-operation loading guards (prevent duplicates & track active ops) ──
@@ -116,10 +498,10 @@ const App = {
             main.innerHTML = Components.Dashboard(App.state.view);
             App.renderJobsList();
         } else if (App.state.view === 'ledger') {
-            main.innerHTML = Components.LedgerView();
+            main.innerHTML = Components.LedgerView(App.state.clients, App.state.clientCount, App.state.ledgerSearchQuery, App.state.loadingClients);
             App.renderLedgerList();
-        } else if (App.state.view === 'ledger-detail') {
-            main.innerHTML = Components.LedgerDetailView(App.state.currentJob);
+        } else if (App.state.view === 'client-profile') {
+            main.innerHTML = Components.ClientProfileView(App.state.currentClient, App.state.activeProfileSection);
         } else if (App.state.view === 'transcript') {
             main.innerHTML = Components.TranscriptView();
             App.renderTranscript();
@@ -144,6 +526,12 @@ const App = {
         if (App.state.view === 'transcript' && viewName !== 'transcript') {
             App.destroyAudioPlayer();
         }
+        // Cleanup shared queue audio if leaving shared-queue
+        if (App.state.view === 'shared-queue' && viewName !== 'shared-queue') {
+            if (App.sharedAudioQueueManager) {
+                App.sharedAudioQueueManager.handleGlobalStop();
+            }
+        }
         // Cleanup ledger audio if leaving ledger-detail
         if (App.state.view === 'ledger-detail' && viewName !== 'ledger-detail') {
             if (App._ledgerAudio) {
@@ -156,8 +544,14 @@ const App = {
         // Reset edit mode when navigating away
         App.state.isEditing = false;
 
+        if (App.state.view === 'ledger' && viewName !== 'ledger') {
+            App.state.editingClientId = null;
+        }
         App.state.view = viewName;
         App.state.activeActionMenu = null;
+        if (viewName === 'ledger') {
+            App.loadClients();
+        }
 
         // Re-render sidebar if needed (to highlight active)
         const root = document.getElementById('app');
@@ -219,6 +613,9 @@ const App = {
     },
 
     logout: () => {
+        if (App.sharedAudioQueueManager) {
+            App.sharedAudioQueueManager.cleanupAll();
+        }
         localStorage.removeItem('access_token');
         localStorage.removeItem('user_info');
         App.state.token = null;
@@ -249,26 +646,10 @@ const App = {
             if (!res.ok) throw new Error("Failed to fetch jobs");
             const jobs = await res.json();
 
-            // Detect newly completed jobs for ledger popup
-            if (App.state.jobs && App.state.jobs.length > 0) {
-                const oldJobsMap = {};
-                App.state.jobs.forEach(j => oldJobsMap[j.id] = j);
-                
-                jobs.forEach(j => {
-                    const oldJob = oldJobsMap[j.id];
-                    if (oldJob && oldJob.status !== 'COMPLETED' && j.status === 'COMPLETED' && !j.service_type) {
-                        App.state.popupQueue.push(j);
-                    }
-                });
-            }
-
             App.state.jobs = jobs;
             App.state.loadingJobs = false;
-            App.processPopupQueue();
             if (App.state.view === 'dashboard' || App.state.view === 'trash') {
                 App.renderJobsList();
-            } else if (App.state.view === 'ledger') {
-                App.renderLedgerList();
             }
         } catch (e) {
             console.error("Load jobs error:", e);
@@ -291,6 +672,9 @@ const App = {
                 const data = await res.json();
                 App.state.sharedQueueItems = data.items;
                 App.state.loadingSharedQueue = false;
+                if (App.sharedAudioQueueManager) {
+                    App.sharedAudioQueueManager.syncWithQueueItems(data.items);
+                }
                 if (App.state.view === 'shared-queue') {
                     const main = document.getElementById('main-content');
                     if (main) {
@@ -736,6 +1120,9 @@ const App = {
     },
 
     _performClaim: async (itemId) => {
+        if (App.sharedAudioQueueManager) {
+            App.sharedAudioQueueManager.removeInstance(itemId);
+        }
         try {
             const res = await App.authFetch(`${App.API_URL}/queue/${itemId}/claim`, {
                 method: 'POST'
@@ -757,6 +1144,9 @@ const App = {
 
     deleteSharedQueueItem: async (itemId) => {
         if (!confirm("Delete this audio from the shared queue? This cannot be undone.")) return;
+        if (App.sharedAudioQueueManager) {
+            App.sharedAudioQueueManager.removeInstance(itemId);
+        }
         try {
             const res = await App.authFetch(`${App.API_URL}/queue/${itemId}`, {
                 method: 'DELETE'
@@ -1074,158 +1464,616 @@ const App = {
     },
 
     // =====================================================
-    // Ledger Functions
+    // Redesigned Ledger & Client Management Functions
     // =====================================================
 
-    processPopupQueue: () => {
-        if (App.state.popupQueue.length > 0) {
-            const jobToPopup = App.state.popupQueue[0];
-            const modal = document.getElementById('ledgerPopupModal');
-            if (!modal) {
-                if(!document.getElementById('globalLedgerPopupContainer')) {
-                    const container = document.createElement('div');
-                    container.id = 'globalLedgerPopupContainer';
-                    document.body.appendChild(container);
-                }
-                document.getElementById('globalLedgerPopupContainer').innerHTML = Components.LedgerPopup(jobToPopup);
-            }
-        }
+    escapeHtml: (str) => {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     },
 
-    saveLedgerPopup: async (jobId, serviceType, fullName) => {
-        if(!serviceType || !fullName) {
-            alert('Please fill out all fields.');
-            return;
+    formatFileSize: (bytes) => {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    },
+
+    loadClients: async (search = App.state.ledgerSearchQuery) => {
+        App.state.loadingClients = true;
+        const tbody = document.getElementById('ledgerTableBody');
+        if (tbody && (!App.state.clients || App.state.clients.length === 0)) {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-16 text-center">' + ThinkingLoader.section('weaving', 'Loading client records…') + '</td></tr>';
+            ThinkingLoader.init(tbody);
         }
-        const nameParts = fullName.trim().split(' ');
-        const clientName = nameParts[0];
-        const clientSurname = nameParts.slice(1).join(' ');
 
         try {
-            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    service_type: serviceType,
-                    client_name: clientName,
-                    client_surname: clientSurname
-                })
-            });
-            if (res.ok) {
-                // Remove from queue
-                App.state.popupQueue = App.state.popupQueue.filter(j => j.id !== jobId);
-                
-                // Close modal
-                const container = document.getElementById('globalLedgerPopupContainer');
-                if (container) container.innerHTML = '';
-                
-                App.loadJobs();
-                App.processPopupQueue();
-            } else {
-                alert('Failed to save ledger data');
+            const params = new URLSearchParams();
+            if (search && search.trim()) {
+                params.set('search', search.trim());
             }
-        } catch(e) {
-            console.error(e);
-            alert('Error saving ledger data');
+            params.set('limit', '100');
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients?${params.toString()}`);
+            if (res.ok) {
+                const data = await res.json();
+                App.state.clients = data.items || [];
+                App.state.clientCount = data.total || 0;
+            } else {
+                console.error("Failed to load clients:", res.status);
+            }
+        } catch (e) {
+            console.error("Error loading clients:", e);
+        } finally {
+            App.state.loadingClients = false;
+            if (App.state.view === 'ledger') {
+                App.renderLedgerList();
+                const badge = document.getElementById('ledgerClientCountBadge');
+                if (badge) {
+                    badge.textContent = App.state.clientCount === 1 ? '1 client' : `${App.state.clientCount} clients`;
+                }
+            }
         }
-    },
-
-    closeLedgerPopup: (jobId) => {
-        App.state.popupQueue = App.state.popupQueue.filter(j => j.id !== jobId);
-        const container = document.getElementById('globalLedgerPopupContainer');
-        if (container) container.innerHTML = '';
-        App.processPopupQueue();
     },
 
     renderLedgerList: () => {
         const tbody = document.getElementById('ledgerTableBody');
         if (!tbody) return;
-        
-        if (App.state.loadingJobs && (!App.state.jobs || App.state.jobs.length === 0)) {
-            tbody.innerHTML = '<tr><td colspan="8" class="py-12">' + ThinkingLoader.section('weaving', 'Loading ledger records…') + '</td></tr>';
+
+        if (App.state.loadingClients && (!App.state.clients || App.state.clients.length === 0)) {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-16 text-center">' + ThinkingLoader.section('weaving', 'Loading client records…') + '</td></tr>';
             ThinkingLoader.init(tbody);
             return;
         }
 
-        // Filter jobs that have service_type (i.e. filled via popup or edited)
-        const ledgerJobs = (App.state.jobs || []).filter(j => j.service_type);
-        
-        if (ledgerJobs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-500">No ledger entries yet.</td></tr>';
+        const clients = App.state.clients || [];
+        if (clients.length === 0) {
+            tbody.innerHTML = Components.LedgerEmptyState(!!App.state.ledgerSearchQuery);
             return;
         }
-        
-        tbody.innerHTML = ledgerJobs.map(job => Components.LedgerRow(job)).join('');
+
+        tbody.innerHTML = clients.map(c => Components.LedgerRow(c, App.state.editingClientId === c.id)).join('');
         ThinkingLoader.init(tbody);
     },
 
-    openLedgerDetail: async (jobId) => {
-        const job = App.state.jobs.find(j => j.id === jobId);
-        if (job) App.state.currentJob = job;
-        App.navigateTo('ledger-detail');
-        // Load documents
-        try {
-            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/documents`);
-            if (res.ok) {
-                const docs = await res.json();
-                App.state.currentJob.supporting_documents = docs;
-                // Re-render
-                const main = document.getElementById('main-content');
-                if (main && App.state.view === 'ledger-detail') {
-                    main.innerHTML = Components.LedgerDetailView(App.state.currentJob);
-                }
-            }
-        } catch (e) {
-            console.error("Failed to load documents", e);
-        }
-    },
-    
-    saveLedgerEntry: async (jobId, field, value) => {
-        try {
-            const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    [field]: value
-                })
-            });
-            if (res.ok) {
-                App.loadJobs();
-                // Optionally update currentJob if we are viewing it
-                if (App.state.currentJob && App.state.currentJob.id === jobId) {
-                    App.state.currentJob[field] = value;
-                }
-            } else {
-                alert('Failed to update field');
-            }
-        } catch(e) {
-            console.error(e);
-            alert('Error updating field');
-        }
+    onLedgerSearch: (query) => {
+        App.state.ledgerSearchQuery = query;
+        clearTimeout(App._ledgerSearchTimeout);
+        App._ledgerSearchTimeout = setTimeout(() => {
+            App.loadClients(query);
+        }, 250);
     },
 
-    uploadSupportingDocument: async (jobId) => {
-        const fileInput = document.getElementById('suppDocFile');
-        const descInput = document.getElementById('suppDocDesc');
-        const file = fileInput.files[0];
-        const description = descInput.value.trim();
-        
-        if(!file) {
-            alert('Please select a file');
+    clearLedgerSearch: () => {
+        App.state.ledgerSearchQuery = '';
+        const input = document.getElementById('ledgerSearchInput');
+        if (input) input.value = '';
+        App.loadClients('');
+    },
+
+    openNewClientModal: () => {
+        const container = document.getElementById('newClientModalContainer') || document.body;
+        let wrapper = document.getElementById('newClientModalWrapper');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.id = 'newClientModalWrapper';
+            container.appendChild(wrapper);
+        }
+        wrapper.innerHTML = Components.NewClientModal();
+        const fnInput = document.getElementById('newClientFirstName');
+        if (fnInput) fnInput.focus();
+    },
+
+    closeNewClientModal: () => {
+        const wrapper = document.getElementById('newClientModalWrapper');
+        if (wrapper) wrapper.innerHTML = '';
+    },
+
+    updateNewClientPreview: () => {
+        const fn = (document.getElementById('newClientFirstName')?.value || '').trim();
+        const sn = (document.getElementById('newClientSurname')?.value || '').trim();
+        const derived = `${fn} ${sn}`.trim() || 'None';
+        const previewEl = document.getElementById('newClientDerivedPreview');
+        if (previewEl) previewEl.textContent = derived;
+    },
+
+    submitNewClient: async () => {
+        const fn = (document.getElementById('newClientFirstName')?.value || '').trim();
+        const sn = (document.getElementById('newClientSurname')?.value || '').trim();
+        const phone = (document.getElementById('newClientPhone')?.value || '').trim();
+        const dob = document.getElementById('newClientDob')?.value || null;
+        const errEl = document.getElementById('newClientError');
+        const btn = document.getElementById('saveNewClientBtn');
+
+        if (!fn || !sn) {
+            if (errEl) {
+                errEl.textContent = 'First Name and Surname are both required.';
+                errEl.classList.remove('hidden');
+            }
             return;
         }
 
-        // Duplicate guard
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = ThinkingLoader.inline('working', 'Saving…');
+            ThinkingLoader.init(btn);
+        }
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    first_name: fn,
+                    surname: sn,
+                    phone_number: phone || null,
+                    date_of_birth: dob || null
+                })
+            });
+
+            if (res.ok) {
+                const newClient = await res.json();
+                App.closeNewClientModal();
+                await App.loadClients();
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                if (errEl) {
+                    errEl.textContent = errData.detail || 'Failed to save client record.';
+                    errEl.classList.remove('hidden');
+                }
+            }
+        } catch (e) {
+            console.error("Save client error:", e);
+            if (errEl) {
+                errEl.textContent = 'Network error saving client.';
+                errEl.classList.remove('hidden');
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Save Client';
+            }
+        }
+    },
+
+    toggleLedgerActionMenu: (clientId, event) => {
+        if (event) event.stopPropagation();
+        const menu = document.getElementById(`ledgerMenu-${clientId}`);
+        if (!menu) return;
+        const isHidden = menu.classList.contains('hidden');
+        document.querySelectorAll('.action-menu-dropdown').forEach(d => d.classList.add('hidden'));
+        if (isHidden) {
+            menu.classList.remove('hidden');
+        }
+    },
+
+    startInlineEdit: (clientId, event) => {
+        if (event) event.stopPropagation();
+        document.querySelectorAll('.action-menu-dropdown').forEach(d => d.classList.add('hidden'));
+        App.state.editingClientId = clientId;
+        App.renderLedgerList();
+    },
+
+    updateInlineNamePreview: (clientId) => {
+        const fn = (document.getElementById(`edit-fn-${clientId}`)?.value || '').trim();
+        const sn = (document.getElementById(`edit-sn-${clientId}`)?.value || '').trim();
+        const derived = `${fn} ${sn}`.trim() || '—';
+        const el = document.getElementById(`edit-preview-${clientId}`);
+        if (el) el.textContent = derived;
+    },
+
+    saveInlineEdit: async (clientId) => {
+        const fn = (document.getElementById(`edit-fn-${clientId}`)?.value || '').trim();
+        const sn = (document.getElementById(`edit-sn-${clientId}`)?.value || '').trim();
+        const phone = (document.getElementById(`edit-phone-${clientId}`)?.value || '').trim();
+        const dob = document.getElementById(`edit-dob-${clientId}`)?.value || null;
+        const btn = document.getElementById(`saveInlineBtn-${clientId}`);
+
+        if (!fn || !sn) {
+            alert('First Name and Surname are required.');
+            return;
+        }
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = ThinkingLoader.inline('working', '');
+            ThinkingLoader.init(btn);
+        }
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    first_name: fn,
+                    surname: sn,
+                    phone_number: phone || null,
+                    date_of_birth: dob || null
+                })
+            });
+
+            if (res.ok) {
+                const updated = await res.json();
+                App.state.editingClientId = null;
+                const idx = (App.state.clients || []).findIndex(c => c.id === clientId);
+                if (idx !== -1) {
+                    App.state.clients[idx] = updated;
+                }
+                App.renderLedgerList();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert('Failed to save changes: ' + (err.detail || 'Validation error'));
+            }
+        } catch (e) {
+            console.error("Save inline edit error:", e);
+            alert('Network error saving changes.');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    cancelInlineEdit: (clientId) => {
+        App.state.editingClientId = null;
+        App.renderLedgerList();
+    },
+
+    openClientProfile: async (clientId) => {
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`);
+            if (res.ok) {
+                App.state.currentClient = await res.json();
+                App.state.activeProfileSection = null;
+                App.navigateTo('client-profile');
+            } else {
+                alert('Could not open client profile.');
+            }
+        } catch (e) {
+            console.error("Error opening profile:", e);
+            alert('Network error loading profile.');
+        }
+    },
+
+    startProfileSectionEdit: (clientId, sectionName) => {
+        App.state.activeProfileSection = sectionName;
+        const main = document.getElementById('main-content');
+        if (main && App.state.view === 'client-profile') {
+            main.innerHTML = Components.ClientProfileView(App.state.currentClient, App.state.activeProfileSection);
+            ThinkingLoader.init(main);
+        }
+    },
+
+    cancelProfileSectionEdit: (clientId) => {
+        App.state.activeProfileSection = null;
+        const main = document.getElementById('main-content');
+        if (main && App.state.view === 'client-profile') {
+            main.innerHTML = Components.ClientProfileView(App.state.currentClient, null);
+            ThinkingLoader.init(main);
+        }
+    },
+
+    saveProfileSection: async (clientId, sectionName) => {
+        const btn = document.getElementById(`save${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)}-btn`);
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = ThinkingLoader.inline('working', 'Saving…');
+            ThinkingLoader.init(btn);
+        }
+
+        let payload = {};
+        if (sectionName === 'sectionA') {
+            payload = {
+                first_name: document.getElementById('secA-first_name')?.value?.trim(),
+                surname: document.getElementById('secA-surname')?.value?.trim(),
+                date_of_birth: document.getElementById('secA-date_of_birth')?.value || null,
+                gender: document.getElementById('secA-gender')?.value?.trim() || null,
+                nationality: document.getElementById('secA-nationality')?.value?.trim() || null,
+                place_of_birth: document.getElementById('secA-place_of_birth')?.value?.trim() || null,
+                current_country: document.getElementById('secA-current_country')?.value?.trim() || null,
+                marital_status: document.getElementById('secA-marital_status')?.value?.trim() || null,
+                preferred_language: document.getElementById('secA-preferred_language')?.value?.trim() || null,
+            };
+        } else if (sectionName === 'sectionB') {
+            payload = {
+                phone_number: document.getElementById('secB-phone_number')?.value?.trim() || null,
+                secondary_phone: document.getElementById('secB-secondary_phone')?.value?.trim() || null,
+                email: document.getElementById('secB-email')?.value?.trim() || null,
+                address: document.getElementById('secB-address')?.value?.trim() || null,
+                previous_address: document.getElementById('secB-previous_address')?.value?.trim() || null,
+                city: document.getElementById('secB-city')?.value?.trim() || null,
+                state_province: document.getElementById('secB-state_province')?.value?.trim() || null,
+                postal_code: document.getElementById('secB-postal_code')?.value?.trim() || null,
+                country: document.getElementById('secB-country')?.value?.trim() || null,
+            };
+        } else if (sectionName === 'sectionC') {
+            payload = {
+                identification_info: {
+                    passport_number: document.getElementById('secC-passport_number')?.value?.trim() || null,
+                    passport_country: document.getElementById('secC-passport_country')?.value?.trim() || null,
+                    passport_issue_date: document.getElementById('secC-passport_issue_date')?.value || null,
+                    passport_expiry_date: document.getElementById('secC-passport_expiry_date')?.value || null,
+                    national_id: document.getElementById('secC-national_id')?.value?.trim() || null,
+                    other_id: document.getElementById('secC-other_id')?.value?.trim() || null,
+                }
+            };
+        } else if (sectionName === 'sectionD') {
+            payload = {
+                case_info: {
+                    case_reference: document.getElementById('secD-case_reference')?.value?.trim() || null,
+                    case_type: document.getElementById('secD-case_type')?.value?.trim() || null,
+                    case_status: document.getElementById('secD-case_status')?.value?.trim() || null,
+                    assigned_worker: document.getElementById('secD-assigned_worker')?.value?.trim() || null,
+                    date_case_opened: document.getElementById('secD-date_case_opened')?.value || null,
+                    country_of_origin: document.getElementById('secD-country_of_origin')?.value?.trim() || null,
+                    country_of_application: document.getElementById('secD-country_of_application')?.value?.trim() || null,
+                    legal_reference: document.getElementById('secD-legal_reference')?.value?.trim() || null,
+                    case_summary: document.getElementById('secD-case_summary')?.value?.trim() || null,
+                    case_notes: document.getElementById('secD-case_notes')?.value?.trim() || null,
+                }
+            };
+        } else if (sectionName === 'sectionE') {
+            payload = {
+                background_info: {
+                    education: document.getElementById('secE-education')?.value?.trim() || null,
+                    employment: document.getElementById('secE-employment')?.value?.trim() || null,
+                    family_info: document.getElementById('secE-family_info')?.value?.trim() || null,
+                    personal_history: document.getElementById('secE-personal_history')?.value?.trim() || null,
+                    previous_applications: document.getElementById('secE-previous_applications')?.value?.trim() || null,
+                }
+            };
+        } else if (sectionName === 'sectionF') {
+            payload = {
+                additional_info: {
+                    notes: document.getElementById('secF-notes')?.value?.trim() || null,
+                    important_dates: document.getElementById('secF-important_dates')?.value?.trim() || null,
+                    other_details: document.getElementById('secF-other_details')?.value?.trim() || null,
+                }
+            };
+        }
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                App.state.currentClient = await res.json();
+                App.state.activeProfileSection = null;
+                const main = document.getElementById('main-content');
+                if (main && App.state.view === 'client-profile') {
+                    main.innerHTML = Components.ClientProfileView(App.state.currentClient, null);
+                    ThinkingLoader.init(main);
+                }
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert('Failed to save section: ' + (err.detail || 'Validation error'));
+            }
+        } catch (e) {
+            console.error("Save section error:", e);
+            alert('Network error saving section.');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    confirmDeleteClient: (clientId, clientName, event) => {
+        if (event) event.stopPropagation();
+        document.querySelectorAll('.action-menu-dropdown').forEach(d => d.classList.add('hidden'));
+        const container = document.getElementById('ledgerConfirmModalContainer') || document.body;
+        let wrapper = document.getElementById('ledgerConfirmModalWrapper');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.id = 'ledgerConfirmModalWrapper';
+            container.appendChild(wrapper);
+        }
+        wrapper.innerHTML = Components.DeleteConfirmModal(
+            'Delete Client Record',
+            `Are you sure you want to delete "${clientName}"? This will permanently delete the client profile and all associated files.`,
+            `App.executeDeleteClient('${clientId}')`
+        );
+    },
+
+    closeLedgerConfirmModal: () => {
+        const wrapper = document.getElementById('ledgerConfirmModalWrapper');
+        if (wrapper) wrapper.innerHTML = '';
+    },
+
+    executeDeleteClient: async (clientId) => {
+        App.closeLedgerConfirmModal();
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                if (App.state.view === 'client-profile') {
+                    App.navigateTo('ledger');
+                } else {
+                    await App.loadClients();
+                }
+            } else {
+                alert('Failed to delete client.');
+            }
+        } catch (e) {
+            console.error("Delete client error:", e);
+            alert('Network error deleting client.');
+        }
+    },
+
+    handleClientFilesUpload: async (clientId, fileList) => {
+        if (!fileList || fileList.length === 0) return;
+        const progressEl = document.getElementById('clientFileUploadProgress');
+        if (progressEl) {
+            progressEl.classList.remove('hidden');
+            progressEl.innerHTML = `<div class="p-3 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold flex items-center gap-2">${ThinkingLoader.inline('working', 'Uploading files…')}</div>`;
+            ThinkingLoader.init(progressEl);
+        }
+
+        const formData = new FormData();
+        for (let i = 0; i < fileList.length; i++) {
+            formData.append('files', fileList[i]);
+        }
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}/files`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (res.ok) {
+                const clientRes = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`);
+                if (clientRes.ok) {
+                    App.state.currentClient = await clientRes.json();
+                    const main = document.getElementById('main-content');
+                    if (main && App.state.view === 'client-profile') {
+                        main.innerHTML = Components.ClientProfileView(App.state.currentClient, App.state.activeProfileSection);
+                        ThinkingLoader.init(main);
+                    }
+                }
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert('Upload failed: ' + (err.detail || 'Could not upload files'));
+            }
+        } catch (e) {
+            console.error("File upload error:", e);
+            alert('Network error during file upload.');
+        } finally {
+            if (progressEl) progressEl.classList.add('hidden');
+        }
+    },
+
+    downloadClientFile: async (clientId, fileId) => {
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}/files/${fileId}/download`);
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const disposition = res.headers.get('Content-Disposition') || '';
+                let filename = 'download';
+                const filenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"/);
+                if (filenameMatch) {
+                    filename = decodeURIComponent(filenameMatch[1] || filenameMatch[2]);
+                }
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+            } else {
+                alert('Failed to download file.');
+            }
+        } catch (e) {
+            console.error("Download error:", e);
+            alert('Error downloading file.');
+        }
+    },
+
+    previewClientFile: (clientId, fileId, filename, ext) => {
+        const previewUrl = `${App.API_URL}/api/ledger/clients/${clientId}/files/${fileId}/preview`;
+        let contentHtml = '';
+
+        if (['jpg', 'jpeg', 'png'].includes(ext)) {
+            contentHtml = `<img src="${previewUrl}" alt="${App.escapeHtml(filename)}" class="max-w-full max-h-[75vh] object-contain rounded shadow">`;
+        } else if (ext === 'pdf') {
+            contentHtml = `<iframe src="${previewUrl}" class="w-full h-[75vh] rounded border-0 bg-white"></iframe>`;
+        } else if (['mp3', 'wav', 'm4a'].includes(ext)) {
+            contentHtml = `
+                <div class="p-8 bg-white rounded-xl shadow-sm text-center max-w-md w-full">
+                    <p class="font-bold text-slate-900 mb-4">${App.escapeHtml(filename)}</p>
+                    <audio controls src="${previewUrl}" class="w-full"></audio>
+                </div>
+            `;
+        } else if (ext === 'mp4') {
+            contentHtml = `<video controls src="${previewUrl}" class="max-w-full max-h-[75vh] rounded shadow"></video>`;
+        } else {
+            contentHtml = `
+                <div class="p-8 bg-white rounded-xl shadow-sm text-center max-w-sm w-full">
+                    <p class="text-slate-600 mb-4">Preview not available for this file type (.${ext}).</p>
+                    <button onclick="App.downloadClientFile('${clientId}', '${fileId}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition">Download File</button>
+                </div>
+            `;
+        }
+
+        const container = document.getElementById('filePreviewModalContainer') || document.body;
+        let wrapper = document.getElementById('filePreviewModalWrapper');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.id = 'filePreviewModalWrapper';
+            container.appendChild(wrapper);
+        }
+        wrapper.innerHTML = Components.FilePreviewModal(filename, contentHtml);
+    },
+
+    closeFilePreview: () => {
+        const wrapper = document.getElementById('filePreviewModalWrapper');
+        if (wrapper) wrapper.innerHTML = '';
+    },
+
+    confirmDeleteClientFile: (clientId, fileId, filename) => {
+        const container = document.getElementById('ledgerConfirmModalContainer') || document.body;
+        let wrapper = document.getElementById('ledgerConfirmModalWrapper');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.id = 'ledgerConfirmModalWrapper';
+            container.appendChild(wrapper);
+        }
+        wrapper.innerHTML = Components.DeleteConfirmModal(
+            'Delete File',
+            `Are you sure you want to delete "${filename}"? This action cannot be undone.`,
+            `App.executeDeleteClientFile('${clientId}', '${fileId}')`
+        );
+    },
+
+    executeDeleteClientFile: async (clientId, fileId) => {
+        App.closeLedgerConfirmModal();
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}/files/${fileId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                const clientRes = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`);
+                if (clientRes.ok) {
+                    App.state.currentClient = await clientRes.json();
+                    const main = document.getElementById('main-content');
+                    if (main && App.state.view === 'client-profile') {
+                        main.innerHTML = Components.ClientProfileView(App.state.currentClient, App.state.activeProfileSection);
+                        ThinkingLoader.init(main);
+                    }
+                }
+            } else {
+                alert('Failed to delete file.');
+            }
+        } catch (e) {
+            console.error("Delete file error:", e);
+            alert('Network error deleting file.');
+        }
+    },
+
+    // Legacy Job Supporting Document Handlers (Preserved for backward compatibility)
+    uploadSupportingDocument: async (jobId) => {
+        const fileInput = document.getElementById('suppDocFile');
+        const descInput = document.getElementById('suppDocDesc');
+        if (!fileInput || !fileInput.files[0]) {
+            alert('Please select a file');
+            return;
+        }
+        const file = fileInput.files[0];
+        const description = descInput ? descInput.value.trim() : '';
         const uploadKey = `supp-doc-${jobId}`;
         if (App._activeUploads.has(uploadKey)) return;
         App._activeUploads.add(uploadKey);
-        
+
         const formData = new FormData();
         formData.append('file', file);
-        if (description) {
-            formData.append('description', description);
-        }
-        
+        if (description) formData.append('description', description);
+
         const btn = document.getElementById('uploadSuppBtn');
         const originalBtnHtml = btn ? btn.innerHTML : 'Upload';
         if (btn) {
@@ -1233,20 +2081,18 @@ const App = {
             btn.innerHTML = `${ThinkingLoader.inline('working', 'Uploading…')}`;
             ThinkingLoader.init(btn);
         }
-        
+
         try {
             const res = await App.authFetch(`${App.API_URL}/jobs/${jobId}/documents`, {
                 method: 'POST',
                 body: formData
             });
-            if(res.ok) {
+            if (res.ok) {
                 const doc = await res.json();
-                if(!App.state.currentJob.supporting_documents) {
-                    App.state.currentJob.supporting_documents = [];
+                if (App.state.currentJob) {
+                    if (!App.state.currentJob.supporting_documents) App.state.currentJob.supporting_documents = [];
+                    App.state.currentJob.supporting_documents.push(doc);
                 }
-                App.state.currentJob.supporting_documents.push(doc);
-                // Re-render
-                App.navigateTo('ledger-detail');
             } else {
                 alert('Upload failed');
             }
@@ -1279,12 +2125,10 @@ const App = {
             filename = doc ? doc.original_filename : 'document';
         }
 
-        // Duplicate guard
         const dlKey = `supp-doc-${docId}`;
         if (App._activeDownloads.has(dlKey)) return false;
         App._activeDownloads.add(dlKey);
 
-        // Find and update the download button for this document
         const docBtn = triggerBtn || document.getElementById(`suppDocDlBtn-${docId}`) || document.querySelector(`button[onclick*="downloadSupportingDocument"][onclick*="${docId}"]`);
         const originalDocBtnHtml = docBtn ? docBtn.innerHTML : '';
         if (docBtn) {
@@ -1307,7 +2151,6 @@ const App = {
                 const url = window.URL.createObjectURL(blob);
                 const finalFilename = App._getFilenameFromResponse(res, filename);
                 
-                // Check if text/pdf to open in new tab instead of forcing download
                 if (blob.type === 'application/pdf' || blob.type === 'text/plain') {
                     window.open(url, '_blank');
                 } else {
@@ -1331,7 +2174,6 @@ const App = {
             return false;
         } finally {
             App._activeDownloads.delete(dlKey);
-            // Restore button (re-query in case of re-render)
             const restoredDocBtn = document.getElementById(`suppDocDlBtn-${docId}`) || document.querySelector(`button[onclick*="downloadSupportingDocument"][onclick*="${docId}"]`);
             if (restoredDocBtn) {
                 restoredDocBtn.disabled = false;
@@ -1722,70 +2564,14 @@ const App = {
     },
 
     playSharedAudio: async (queueItemId, filename) => {
-        const playBtn = document.getElementById(`sharedPlayBtn-${queueItemId}`);
-        const playIcon = document.getElementById(`sharedPlayIcon-${queueItemId}`);
-
-        const resetUI = (id) => {
-            const oldIcon = document.getElementById(`sharedPlayIcon-${id}`);
-            const oldBtn = document.getElementById(`sharedPlayBtn-${id}`);
-            if (oldIcon) oldIcon.innerHTML = '<path d="M8 5v14l11-7z"></path>';
-            if (oldBtn) {
-                oldBtn.classList.remove('text-amber-600', 'bg-amber-100');
-                oldBtn.classList.add('text-slate-500', 'hover:text-blue-600', 'hover:bg-slate-100');
-            }
-        };
-
-        const setStopUI = () => {
-            if (playIcon) playIcon.innerHTML = '<path d="M6 6h12v12H6z"></path>';
-            if (playBtn) {
-                playBtn.classList.remove('text-slate-500', 'hover:text-blue-600', 'hover:bg-slate-100');
-                playBtn.classList.add('text-amber-600', 'bg-amber-100');
-            }
-        };
-
-        if (App._sharedAudio && App._currentPlayingSharedId === queueItemId) {
-            if (!App._sharedAudio.paused) {
-                App._sharedAudio.pause();
-                App._sharedAudio.currentTime = 0;
-                resetUI(queueItemId);
-                return;
-            } else {
-                App._sharedAudio.currentTime = 0;
-                App._sharedAudio.play();
-                setStopUI();
-                return;
-            }
+        if (App.sharedAudioQueueManager) {
+            return await App.sharedAudioQueueManager.handlePlayPause(queueItemId);
         }
+    },
 
-        if (App._sharedAudio) {
-            App._sharedAudio.pause();
-            if (App._currentPlayingSharedId) {
-                resetUI(App._currentPlayingSharedId);
-            }
-            App._sharedAudio = null;
-        }
-
-        try {
-            const res = await App.authFetch(`${App.API_URL}/queue/${queueItemId}/audio`);
-            if (res.ok) {
-                const blob = await res.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                App._sharedAudio = new Audio(blobUrl);
-                App._currentPlayingSharedId = queueItemId;
-                
-                App._sharedAudio.currentTime = 0;
-                App._sharedAudio.play();
-                setStopUI();
-                
-                App._sharedAudio.onended = () => {
-                    resetUI(queueItemId);
-                };
-            } else {
-                alert("Failed to load audio");
-            }
-        } catch (e) {
-            console.error("Playback error", e);
-            alert("Playback failed");
+    stopSharedAudio: async (queueItemId) => {
+        if (App.sharedAudioQueueManager) {
+            return await App.sharedAudioQueueManager.handleGlobalStop(queueItemId);
         }
     },
 
@@ -1979,4 +2765,17 @@ const App = {
     }
 };
 
-document.addEventListener('DOMContentLoaded', App.init);
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', App.init);
+
+    // Global click handler to close action menus
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.action-menu-dropdown') && !e.target.closest('button[title="Actions"]')) {
+            document.querySelectorAll('.action-menu-dropdown').forEach(d => d.classList.add('hidden'));
+        }
+    });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { App, SharedAudioQueueManager };
+}

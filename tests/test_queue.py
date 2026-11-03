@@ -33,13 +33,19 @@ def override_get_db():
 def override_get_current_user():
     return User(id="test_user", username="test", is_admin=False)
 
-app.dependency_overrides[get_db] = override_get_db
-app.dependency_overrides[get_current_user] = override_get_current_user
-
 client = TestClient(app)
 
 @pytest.fixture(autouse=True)
-def setup_db():
+def setup_db(monkeypatch):
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    from unittest.mock import MagicMock
+    mock_task = MagicMock()
+    mock_task.id = "mock_celery_task_id"
+    import app.api.queue as queue_mod
+    monkeypatch.setattr(queue_mod.process_audio, "delay", MagicMock(return_value=mock_task))
+
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()

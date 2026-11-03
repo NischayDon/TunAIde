@@ -4,6 +4,9 @@ gcp_key.json
 
 # Database & Logs
 *.db
+*.db.backup
+*.backup
+*.sqlite
 *.log
 celerybeat-schedule
 celerybeat.pid

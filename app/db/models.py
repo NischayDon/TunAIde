@@ -42,6 +42,7 @@ class User(Base):
     total_completed = Column(Integer, default=0)
     
     jobs = relationship("Job", back_populates="user")
+    clients = relationship("Client", back_populates="creator", foreign_keys="Client.created_by_id")
 
 class AudioQueueItem(Base):
     __tablename__ = "audio_queue"
@@ -133,3 +134,73 @@ class SupportingDocument(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     job = relationship("Job", back_populates="supporting_documents")
+
+
+class Client(Base):
+    __tablename__ = "clients"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    created_by_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+
+    # Core primary fields
+    first_name = Column(String, nullable=False, index=True)
+    surname = Column(String, nullable=False, index=True)
+    phone_number = Column(String, nullable=True, index=True)
+    date_of_birth = Column(String, nullable=True)
+
+    # Section A: Personal Information
+    gender = Column(String, nullable=True)
+    nationality = Column(String, nullable=True)
+    place_of_birth = Column(String, nullable=True)
+    current_country = Column(String, nullable=True)
+    marital_status = Column(String, nullable=True)
+    preferred_language = Column(String, nullable=True)
+
+    # Section B: Contact Information
+    secondary_phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    address = Column(Text, nullable=True)
+    previous_address = Column(Text, nullable=True)
+    country = Column(String, nullable=True)
+    state_province = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    postal_code = Column(String, nullable=True)
+
+    # Sections C-F: Structured extensible sections
+    identification_info = Column(JSON, default=dict)
+    case_info = Column(JSON, default=dict)
+    background_info = Column(JSON, default=dict)
+    additional_info = Column(JSON, default=dict)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    creator = relationship("User", foreign_keys=[created_by_id], back_populates="clients")
+    files = relationship("ClientFile", back_populates="client", cascade="all, delete-orphan", order_by="desc(ClientFile.uploaded_at)")
+
+    @property
+    def full_name(self) -> str:
+        first = (self.first_name or "").strip()
+        last = (self.surname or "").strip()
+        if first and last:
+            return f"{first} {last}"
+        return first or last or ""
+
+
+class ClientFile(Base):
+    __tablename__ = "client_files"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    client_id = Column(String, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    original_filename = Column(String, nullable=False)
+    storage_path = Column(String, nullable=False)
+    mime_type = Column(String, nullable=True)
+    file_size_bytes = Column(BigInteger, nullable=True)
+
+    uploaded_by_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    client = relationship("Client", back_populates="files")
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])
+

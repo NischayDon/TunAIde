@@ -60,7 +60,7 @@ BAD_ENDPOINT_SETTINGS = make_settings(
     S3_ENDPOINT_URL="not-a-url",
 )
 
-NO_STORAGE_SETTINGS = make_settings()
+NO_STORAGE_SETTINGS = make_settings(GCP_BUCKET_NAME=None, GCP_CREDENTIALS_JSON=None)
 
 
 # ---------------------------------------------------------------------------

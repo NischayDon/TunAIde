@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
-from app.api import jobs, auth, admin, queue, internal
+from app.api import jobs, auth, admin, queue, internal, ledger
 from app.db.base import Base, engine
 # Import models to register them with Base.metadata before create_all
 from app.db import models
@@ -86,6 +86,8 @@ app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(jobs.router, prefix="/jobs", tags=["Jobs"])
 app.include_router(queue.router, prefix="/queue", tags=["Queue"])
 app.include_router(internal.router, prefix="/api/internal", tags=["Internal"])
+app.include_router(ledger.router, prefix="/api/ledger", tags=["Ledger"])
+app.include_router(ledger.router, prefix="/ledger", tags=["Ledger"])
 
 @app.get("/", response_class=HTMLResponse)
 def read_root():

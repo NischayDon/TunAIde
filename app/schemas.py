@@ -93,3 +93,107 @@ class AudioQueueItemResponse(AudioQueueItemBase):
 class AudioQueueListResponse(BaseModel):
     items: List[AudioQueueItemResponse]
     total: int
+
+# --- Client / Ledger Schemas ---
+
+class ClientFileResponse(BaseModel):
+    id: str
+    client_id: str
+    original_filename: str
+    mime_type: Optional[str] = None
+    file_size_bytes: Optional[int] = None
+    uploaded_at: Optional[datetime] = None
+    uploaded_by_id: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ClientCreate(BaseModel):
+    first_name: str
+    surname: str
+    phone_number: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    # Section A
+    gender: Optional[str] = None
+    nationality: Optional[str] = None
+    place_of_birth: Optional[str] = None
+    current_country: Optional[str] = None
+    marital_status: Optional[str] = None
+    preferred_language: Optional[str] = None
+    # Section B
+    secondary_phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    previous_address: Optional[str] = None
+    country: Optional[str] = None
+    state_province: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    # Sections C-F
+    identification_info: Optional[dict] = None
+    case_info: Optional[dict] = None
+    background_info: Optional[dict] = None
+    additional_info: Optional[dict] = None
+
+class ClientUpdate(BaseModel):
+    first_name: Optional[str] = None
+    surname: Optional[str] = None
+    phone_number: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    # Section A
+    gender: Optional[str] = None
+    nationality: Optional[str] = None
+    place_of_birth: Optional[str] = None
+    current_country: Optional[str] = None
+    marital_status: Optional[str] = None
+    preferred_language: Optional[str] = None
+    # Section B
+    secondary_phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    previous_address: Optional[str] = None
+    country: Optional[str] = None
+    state_province: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    # Sections C-F
+    identification_info: Optional[dict] = None
+    case_info: Optional[dict] = None
+    background_info: Optional[dict] = None
+    additional_info: Optional[dict] = None
+
+class ClientResponse(BaseModel):
+    id: str
+    created_by_id: str
+    first_name: str
+    surname: str
+    full_name: str
+    phone_number: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+    nationality: Optional[str] = None
+    place_of_birth: Optional[str] = None
+    current_country: Optional[str] = None
+    marital_status: Optional[str] = None
+    preferred_language: Optional[str] = None
+    secondary_phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    previous_address: Optional[str] = None
+    country: Optional[str] = None
+    state_province: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    identification_info: Optional[dict] = None
+    case_info: Optional[dict] = None
+    background_info: Optional[dict] = None
+    additional_info: Optional[dict] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    files: List[ClientFileResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ClientListResponse(BaseModel):
+    items: List[ClientResponse]
+    total: int
+

@@ -129,36 +129,7 @@ def process_audio_file(job_id: str, task_id: str = None):
         )
         db.add(new_transcript)
         
-        # 7. Auto-extract ledger fields from transcript text
-        plain_text = transcription_result["text"].strip()
-        words = plain_text.split()
-        
-        valid_service_types = {
-            "recours": "Recours",
-            "ofpra": "OFPRA",
-            "réexamin": "Réexamin",
-            "reexamin": "Réexamin",
-            "tribunal": "Tribunal",
-        }
-        
-        if words:
-            first_word_lower = words[0].strip(".,;:!?").lower()
-            matched_service = valid_service_types.get(first_word_lower)
-            if matched_service:
-                job.service_type = matched_service
-                print(f"Auto-extracted service_type: {matched_service}")
-            else:
-                print(f"Warning: First word '{words[0]}' does not match a known service type.")
-        
-        if len(words) >= 2:
-            job.client_name = words[1].strip(".,;:!?")
-            print(f"Auto-extracted client_name: {job.client_name}")
-        
-        if len(words) >= 3:
-            job.client_surname = words[2].strip(".,;:!?")
-            print(f"Auto-extracted client_surname: {job.client_surname}")
-        
-        # 8. Complete Job
+        # 7. Complete Job (Keyword-based ledger extraction removed per redesign spec)
         job.status = JobStatus.COMPLETED.value
         job.completed_at = datetime.now(timezone.utc)
         # Use duration from metadata (calculated in service or from segments)
