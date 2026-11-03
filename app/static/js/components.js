@@ -260,8 +260,8 @@ const Components = {
     `},
 
     SharedQueuePlayPauseButton: (itemId, state = 'IDLE', isStopping = false) => {
-        if (state === 'INITIALIZING' || state === 'PAUSING' || state === 'STOPPING' || isStopping) {
-            const title = (isStopping || state === 'STOPPING') ? 'Stopping…' : state === 'INITIALIZING' ? 'Loading…' : 'Pausing…';
+        if (state === 'INITIALIZING' || state === 'PAUSING' || state === 'STOPPING' || state === 'LOADING' || isStopping) {
+            const title = (isStopping || state === 'STOPPING') ? 'Stopping…' : (state === 'PAUSING') ? 'Pausing…' : 'Loading…';
             return `
                 <button id="sharedPlayBtn-${itemId}" disabled class="p-1.5 text-blue-600 bg-blue-50 rounded-md cursor-not-allowed opacity-75 inline-flex items-center justify-center" title="${title}">
                     <svg class="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -697,6 +697,11 @@ const Components = {
                         <div id="audioBufferIcon" class="hidden absolute inset-0 flex items-center justify-center">
                             ${ThinkingLoader.inline('listening', '')}
                         </div>
+                    </button>
+
+                    <!-- Dedicated Stop Button immediately beside Play/Pause -->
+                    <button id="audioStopBtn" onclick="App.stopAudio()" class="audio-ctrl-btn" title="Stop">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"></path></svg>
                     </button>
 
                     <!-- Forward 10s -->

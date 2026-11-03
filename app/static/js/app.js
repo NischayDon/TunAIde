@@ -22,10 +22,128 @@
  *   PLAYING      -> ERROR
  *   STOPPING     -> IDLE
  */
+/**
+ * CentralizedAudioController
+ *
+ * Enforces a single active audio playback instance across the entire application:
+ * - Only ONE audio instance can play at any given time across all components & views.
+ * - Maintains reference to the currently active audio instance.
+ * - Stops/pauses previously playing audio before a new recording starts.
+ * - Cancels/invalidates pending or in-flight requests when another track or Stop is clicked.
+ * - Provides centralized cleanup on navigation, component unmount, or modal close.
+ */
+class CentralizedAudioController {
+    constructor() {
+        this._activeAudio = null;
+        this._activeRecordingId = null;
+        this._stopCallback = null;
+        this._globalOpId = 0;
+    }
+
+    notifyActive(recordingId, stopCallback = null) {
+        this._globalOpId++;
+        // If there was an active audio from another component/recording, stop it immediately
+        if (this._activeRecordingId && this._activeRecordingId !== recordingId) {
+            const isBothQueue = this._activeRecordingId.startsWith('sq-') && recordingId.startsWith('sq-');
+            if (!isBothQueue && this._stopCallback) {
+                const cb = this._stopCallback;
+                this._stopCallback = null;
+                try {
+                    cb();
+                } catch (e) {
+                    console.warn('Error invoking previous audio stopCallback:', e);
+                }
+            }
+            if (this._activeAudio && !isBothQueue) {
+                try {
+                    this._activeAudio.pause();
+                } catch (e) {}
+                this._activeAudio = null;
+            }
+        }
+        this._activeRecordingId = recordingId;
+        this._stopCallback = stopCallback;
+    }
+
+    setActiveAudio(audio, recordingId) {
+        this._activeAudio = audio;
+        this._activeRecordingId = recordingId;
+    }
+
+    getActiveAudio() {
+        return this._activeAudio;
+    }
+
+    getActiveRecordingId() {
+        return this._activeRecordingId;
+    }
+
+    stopAll() {
+        this._globalOpId++;
+        if (this._stopCallback) {
+            const cb = this._stopCallback;
+            this._stopCallback = null;
+            try {
+                cb();
+            } catch (e) {
+                console.warn('Error invoking stopCallback:', e);
+            }
+        }
+        if (typeof App !== 'undefined' && App.sharedAudioQueueManager) {
+            App.sharedAudioQueueManager._isGlobalStopping = false;
+        }
+        if (this._activeAudio) {
+            try {
+                this._activeAudio.pause();
+                this._activeAudio.currentTime = 0;
+            } catch (e) {}
+            this._activeAudio = null;
+        }
+        this._activeRecordingId = null;
+
+        // Ensure all <audio> elements across the DOM are stopped and reset
+        if (typeof document !== 'undefined') {
+            document.querySelectorAll('audio').forEach(a => {
+                try {
+                    a.pause();
+                    a.currentTime = 0;
+                } catch (e) {}
+            });
+        }
+    }
+
+    _stopNonQueueAudio() {
+        if (this._activeRecordingId && !this._activeRecordingId.startsWith('sq-')) {
+            if (this._stopCallback) {
+                try { this._stopCallback(); } catch (e) {}
+                this._stopCallback = null;
+            }
+            if (this._activeAudio) {
+                try {
+                    this._activeAudio.pause();
+                    this._activeAudio.currentTime = 0;
+                } catch (e) {}
+                this._activeAudio = null;
+            }
+            this._activeRecordingId = null;
+        }
+        if (typeof document !== 'undefined') {
+            const transcriptAudio = document.getElementById('audioElement');
+            if (transcriptAudio && !transcriptAudio.paused) {
+                try {
+                    transcriptAudio.pause();
+                    transcriptAudio.currentTime = 0;
+                } catch (e) {}
+            }
+        }
+    }
+}
+
 class SharedAudioQueueManager {
     constructor() {
         this._instances = new Map(); // itemId -> { id, state, audio, blobUrl, position, opId, error }
         this._activePlayingId = null;
+        this._initializingId = null;
         this._isGlobalStopping = false;
         this._globalOpId = 0;
     }
@@ -82,21 +200,43 @@ class SharedAudioQueueManager {
             return;
         }
 
-        // Single-audio playback constraint:
-        // If another item is currently playing or initializing, pause it first
-        if (this._activePlayingId && this._activePlayingId !== itemId) {
-            await this.pause(this._activePlayingId);
-        }
-
         // Advance operation counter for cancellation tokens
         inst.opId = (inst.opId || 0) + 1;
         const currentOpId = inst.opId;
         const currentGlobalOpId = this._globalOpId;
 
-        // Transition to INITIALIZING
+        // Transition to INITIALIZING immediately (disables button & shows loading spinner)
         inst.state = 'INITIALIZING';
         inst.error = null;
         this.updateEntryUI(itemId);
+
+        // Single-audio playback constraint across the ENTIRE application:
+        // 1. Notify CentralizedAudioController to stop any non-queue active audio
+        if (typeof App !== 'undefined' && App.audioController) {
+            App.audioController.notifyActive('sq-' + itemId, () => this.handleGlobalStop());
+        }
+
+        // 2. If another queue item is currently playing, pause it immediately
+        if (this._activePlayingId && this._activePlayingId !== itemId) {
+            await this.pause(this._activePlayingId);
+        }
+
+        // 3. If another queue item is currently initializing, cancel it immediately!
+        if (this._initializingId && this._initializingId !== itemId) {
+            const prevInst = this._instances.get(this._initializingId);
+            if (prevInst) {
+                prevInst.opId = (prevInst.opId || 0) + 1; // cancel token
+                prevInst.state = 'IDLE';
+                prevInst.position = 0;
+                this.updateEntryUI(this._initializingId);
+            }
+        }
+        this._initializingId = itemId;
+
+        // Check cancellation
+        if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping || this._initializingId !== itemId) {
+            return;
+        }
 
         try {
             // Step 1: Ensure audio instance and blob URL are ready
@@ -108,7 +248,7 @@ class SharedAudioQueueManager {
                 const blob = await res.blob();
 
                 // Check cancellation
-                if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping) {
+                if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping || this._initializingId !== itemId) {
                     return;
                 }
 
@@ -136,12 +276,19 @@ class SharedAudioQueueManager {
                 // Event listener: Audio reached the end naturally
                 audio.addEventListener('ended', () => {
                     try {
+                        audio.pause();
                         audio.currentTime = 0;
                     } catch (e) {}
                     inst.position = 0;
                     inst.state = 'IDLE';
                     if (this._activePlayingId === itemId) {
                         this._activePlayingId = null;
+                    }
+                    if (this._initializingId === itemId) {
+                        this._initializingId = null;
+                    }
+                    if (typeof App !== 'undefined' && App.audioController && App.audioController.getActiveAudio() === audio) {
+                        App.audioController.setActiveAudio(null, null);
                     }
                     this.updateEntryUI(itemId);
                 });
@@ -154,13 +301,16 @@ class SharedAudioQueueManager {
                         if (this._activePlayingId === itemId) {
                             this._activePlayingId = null;
                         }
+                        if (this._initializingId === itemId) {
+                            this._initializingId = null;
+                        }
                         this.updateEntryUI(itemId);
                     }
                 });
             }
 
             // Check cancellation after audio preparation
-            if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping) {
+            if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping || this._initializingId !== itemId) {
                 if (inst.audio) {
                     try { inst.audio.pause(); } catch (e) {}
                 }
@@ -180,14 +330,45 @@ class SharedAudioQueueManager {
                 } catch (e) {}
             }
 
-            // Step 3: Trigger playback
-            const playPromise = inst.audio.play();
-            if (playPromise !== undefined) {
-                await playPromise;
-            }
+            // Step 3: Trigger playback and wait for confirmation
+            await new Promise((resolve, reject) => {
+                let resolved = false;
+                const done = () => {
+                    if (!resolved) {
+                        resolved = true;
+                        if (inst.audio) {
+                            inst.audio.removeEventListener('playing', done);
+                            inst.audio.removeEventListener('play', done);
+                            inst.audio.removeEventListener('error', onErr);
+                        }
+                        resolve();
+                    }
+                };
+                const onErr = (e) => {
+                    if (!resolved) {
+                        resolved = true;
+                        if (inst.audio) {
+                            inst.audio.removeEventListener('playing', done);
+                            inst.audio.removeEventListener('play', done);
+                            inst.audio.removeEventListener('error', onErr);
+                        }
+                        reject(e || new Error('Playback error'));
+                    }
+                };
+                inst.audio.addEventListener('playing', done, { once: true });
+                inst.audio.addEventListener('play', done, { once: true });
+                inst.audio.addEventListener('error', onErr, { once: true });
+
+                const playPromise = inst.audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        setTimeout(done, 10);
+                    }).catch(onErr);
+                }
+            });
 
             // Check cancellation after play promise resolves
-            if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping) {
+            if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping || this._initializingId !== itemId) {
                 if (inst.audio) {
                     try {
                         inst.audio.pause();
@@ -203,9 +384,16 @@ class SharedAudioQueueManager {
             // Step 4: Transition to PLAYING
             inst.state = 'PLAYING';
             this._activePlayingId = itemId;
+            this._initializingId = null;
+            if (typeof App !== 'undefined' && App.audioController) {
+                App.audioController.setActiveAudio(inst.audio, 'sq-' + itemId);
+            }
             this.updateEntryUI(itemId);
 
         } catch (err) {
+            if (this._initializingId === itemId) {
+                this._initializingId = null;
+            }
             // If operation was cancelled or aborted by pause/stop, do not report an error
             if (inst.opId !== currentOpId || this._globalOpId !== currentGlobalOpId || this._isGlobalStopping ||
                 inst.state === 'PAUSED' || inst.state === 'PAUSING' || inst.state === 'STOPPING' || inst.state === 'IDLE' ||
@@ -237,6 +425,7 @@ class SharedAudioQueueManager {
         }
 
         inst.opId = (inst.opId || 0) + 1;
+        const currentOpId = inst.opId;
         inst.state = 'PAUSING';
         this.updateEntryUI(itemId);
 
@@ -252,6 +441,16 @@ class SharedAudioQueueManager {
         if (this._activePlayingId === itemId) {
             this._activePlayingId = null;
         }
+        if (this._initializingId === itemId) {
+            this._initializingId = null;
+        }
+        if (typeof App !== 'undefined' && App.audioController && App.audioController.getActiveAudio() === inst.audio) {
+            App.audioController.setActiveAudio(null, null);
+        }
+
+        if (inst.opId !== currentOpId) {
+            return;
+        }
 
         inst.state = 'PAUSED';
         this.updateEntryUI(itemId);
@@ -260,6 +459,12 @@ class SharedAudioQueueManager {
     async handleGlobalStop(triggerItemId) {
         this._isGlobalStopping = true;
         this._globalOpId = (this._globalOpId || 0) + 1;
+        this._initializingId = null;
+
+        // Stop any non-queue active audio across the entire application
+        if (typeof App !== 'undefined' && App.audioController) {
+            App.audioController._stopNonQueueAudio();
+        }
 
         // Mark active or in-flight instances as STOPPING
         for (const [id, inst] of this._instances.entries()) {
@@ -287,10 +492,26 @@ class SharedAudioQueueManager {
             inst.error = null;
         });
 
+        for (const inst of this._instances.values()) {
+            if (inst.audio) {
+                try {
+                    inst.audio.pause();
+                    inst.audio.currentTime = 0;
+                } catch (e) {}
+            }
+            inst.position = 0;
+            inst.state = 'IDLE';
+            inst.error = null;
+        }
+
         await Promise.allSettled(stopPromises);
 
         this._activePlayingId = null;
         this._isGlobalStopping = false;
+
+        if (typeof App !== 'undefined' && App.audioController) {
+            App.audioController.setActiveAudio(null, null);
+        }
 
         // Update all buttons back to idle state
         this.updateAllUI();
@@ -318,6 +539,9 @@ class SharedAudioQueueManager {
         if (this._activePlayingId === itemId) {
             this._activePlayingId = null;
         }
+        if (this._initializingId === itemId) {
+            this._initializingId = null;
+        }
     }
 
     cleanupAll() {
@@ -339,6 +563,7 @@ class SharedAudioQueueManager {
         }
         this._instances.clear();
         this._activePlayingId = null;
+        this._initializingId = null;
         this._isGlobalStopping = false;
     }
 
@@ -373,6 +598,7 @@ class SharedAudioQueueManager {
 }
 
 const App = {
+    audioController: new CentralizedAudioController(),
     sharedAudioQueueManager: new SharedAudioQueueManager(),
     state: {
         jobs: [],
@@ -522,6 +748,10 @@ const App = {
     },
 
     navigateTo: (viewName) => {
+        // Enforce centralized audio cleanup on navigation across the entire application
+        if (App.audioController) {
+            App.audioController.stopAll();
+        }
         // Cleanup audio player if leaving transcript view
         if (App.state.view === 'transcript' && viewName !== 'transcript') {
             App.destroyAudioPlayer();
@@ -555,12 +785,14 @@ const App = {
 
         // Re-render sidebar if needed (to highlight active)
         const root = document.getElementById('app');
-        if (App.state.view !== 'login') {
+        if (root && App.state.view !== 'login') {
             const sidebar = root.querySelector('.w-64');
             if (sidebar) sidebar.outerHTML = Components.Sidebar(viewName, App.state.user);
         }
 
-        App.updateView();
+        if (root) {
+            App.updateView();
+        }
 
         if (viewName === 'dashboard' || viewName === 'trash') {
             App.loadJobs();
@@ -2264,9 +2496,7 @@ const App = {
 
         // Audio ended
         audio.addEventListener('ended', () => {
-            hideBuffering();
-            if (playIcon) playIcon.classList.remove('hidden');
-            if (pauseIcon) pauseIcon.classList.add('hidden');
+            App.stopAudio();
         });
 
         // Keyboard handler — only when hovered
@@ -2408,20 +2638,194 @@ const App = {
         }
     },
 
-    togglePlayPause: () => {
-        const audio = document.getElementById('audioElement');
+    _setAudioPlayerUIState: (state) => {
+        const playBtn = document.getElementById('audioPlayPauseBtn');
+        const stopBtn = document.getElementById('audioStopBtn');
         const playIcon = document.getElementById('playIcon');
         const pauseIcon = document.getElementById('pauseIcon');
-        if (!audio) return;
+        const bufferIcon = document.getElementById('audioBufferIcon');
 
-        if (audio.paused) {
-            audio.play().catch(e => console.error('Audio play failed:', e));
+        if (!playBtn) return;
+
+        if (state === 'INITIALIZING' || state === 'PAUSING' || state === 'LOADING') {
+            playBtn.disabled = true;
+            if (playIcon) playIcon.classList.add('hidden');
+            if (pauseIcon) pauseIcon.classList.add('hidden');
+            if (bufferIcon) {
+                bufferIcon.classList.remove('hidden');
+                if (typeof ThinkingLoader !== 'undefined') ThinkingLoader.init(bufferIcon);
+            }
+            if (stopBtn) stopBtn.disabled = false;
+        } else if (state === 'PLAYING') {
+            playBtn.disabled = false;
             if (playIcon) playIcon.classList.add('hidden');
             if (pauseIcon) pauseIcon.classList.remove('hidden');
-        } else {
-            audio.pause();
+            if (bufferIcon) bufferIcon.classList.add('hidden');
+            if (stopBtn) stopBtn.disabled = false;
+        } else if (state === 'PAUSED') {
+            playBtn.disabled = false;
             if (playIcon) playIcon.classList.remove('hidden');
             if (pauseIcon) pauseIcon.classList.add('hidden');
+            if (bufferIcon) bufferIcon.classList.add('hidden');
+            if (stopBtn) stopBtn.disabled = false;
+        } else {
+            // IDLE
+            playBtn.disabled = false;
+            if (playIcon) playIcon.classList.remove('hidden');
+            if (pauseIcon) pauseIcon.classList.add('hidden');
+            if (bufferIcon) bufferIcon.classList.add('hidden');
+            if (stopBtn) stopBtn.disabled = false;
+        }
+    },
+
+    stopAudio: () => {
+        if (App._stoppingAudio) return;
+        App._stoppingAudio = true;
+        try {
+            App._currentAudioOpId = (App._currentAudioOpId || 0) + 1;
+            const audio = document.getElementById('audioElement');
+            if (audio) {
+                try {
+                    audio.pause();
+                    audio.currentTime = 0;
+                } catch (e) {}
+            }
+
+            // Stop all audio across the application
+            if (App.audioController) {
+                App.audioController.stopAll();
+            }
+            if (App.sharedAudioQueueManager) {
+                App.sharedAudioQueueManager.handleGlobalStop();
+            }
+            if (App._ledgerAudio) {
+                try {
+                    App._ledgerAudio.pause();
+                    App._ledgerAudio.currentTime = 0;
+                } catch (e) {}
+                App._ledgerAudioPlaying = false;
+            }
+
+            // Reset player UI
+            App._setAudioPlayerUIState('IDLE');
+            const seekBar = document.getElementById('audioSeekBar');
+            const currentTimeEl = document.getElementById('audioCurrentTime');
+            if (seekBar) seekBar.value = 0;
+            if (currentTimeEl) currentTimeEl.textContent = '0:00';
+        } finally {
+            App._stoppingAudio = false;
+        }
+    },
+
+    togglePlayPause: async () => {
+        const audio = document.getElementById('audioElement');
+        if (!audio || !App.state.currentJob) return;
+
+        const jobId = App.state.currentJob.id;
+        const recordingId = 'job-' + jobId;
+
+        // If currently playing, perform Pause flow
+        if (!audio.paused) {
+            App._setAudioPlayerUIState('PAUSING');
+            try {
+                await new Promise((resolve) => {
+                    let resolved = false;
+                    const done = () => {
+                        if (!resolved) {
+                            resolved = true;
+                            audio.removeEventListener('pause', done);
+                            resolve();
+                        }
+                    };
+                    if (audio.paused) {
+                        done();
+                        return;
+                    }
+                    audio.addEventListener('pause', done, { once: true });
+                    try {
+                        audio.pause();
+                    } catch (e) {
+                        done();
+                    }
+                    setTimeout(done, 100);
+                });
+            } catch (e) {
+                console.warn('Audio pause failed:', e);
+            }
+            App._setAudioPlayerUIState('PAUSED');
+            return;
+        }
+
+        // Otherwise, perform Play flow
+        // 1. Enforce single active audio instance: stop any other playing audio
+        if (App.audioController) {
+            App.audioController.notifyActive(recordingId, () => App.stopAudio());
+        }
+        if (App.sharedAudioQueueManager) {
+            await App.sharedAudioQueueManager.handleGlobalStop();
+        }
+        if (App._ledgerAudio) {
+            try {
+                App._ledgerAudio.pause();
+                App._ledgerAudio.currentTime = 0;
+            } catch (e) {}
+            App._ledgerAudioPlaying = false;
+        }
+
+        // 2. Loading state: disable button, show spinner
+        App._setAudioPlayerUIState('INITIALIZING');
+        App._currentAudioOpId = (App._currentAudioOpId || 0) + 1;
+        const opId = App._currentAudioOpId;
+
+        try {
+            if (App.audioController) {
+                App.audioController.setActiveAudio(audio, recordingId);
+            }
+
+            await new Promise((resolve, reject) => {
+                let resolved = false;
+                const done = () => {
+                    if (!resolved) {
+                        resolved = true;
+                        audio.removeEventListener('playing', done);
+                        audio.removeEventListener('play', done);
+                        audio.removeEventListener('error', onErr);
+                        resolve();
+                    }
+                };
+                const onErr = (e) => {
+                    if (!resolved) {
+                        resolved = true;
+                        audio.removeEventListener('playing', done);
+                        audio.removeEventListener('play', done);
+                        audio.removeEventListener('error', onErr);
+                        reject(e || new Error('Playback error'));
+                    }
+                };
+                audio.addEventListener('playing', done, { once: true });
+                audio.addEventListener('play', done, { once: true });
+                audio.addEventListener('error', onErr, { once: true });
+
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        setTimeout(done, 10);
+                    }).catch(onErr);
+                }
+            });
+
+            if (opId !== App._currentAudioOpId) {
+                try { audio.pause(); } catch (e) {}
+                return;
+            }
+
+            App._setAudioPlayerUIState('PLAYING');
+        } catch (e) {
+            if (opId !== App._currentAudioOpId || (e && e.name === 'AbortError')) {
+                return;
+            }
+            console.error('Audio play failed:', e);
+            App._setAudioPlayerUIState('IDLE');
         }
     },
 
@@ -2716,6 +3120,40 @@ const App = {
             return;
         }
 
+        // Enforce single active audio instance: stop any other playing audio
+        if (App.audioController) {
+            App.audioController.notifyActive('ledger-' + jobId, () => {
+                if (App._ledgerAudio) {
+                    try {
+                        App._ledgerAudio.pause();
+                        App._ledgerAudio.currentTime = 0;
+                    } catch (e) {}
+                    App._ledgerAudioPlaying = false;
+                    if (playIcon) playIcon.innerHTML = '<path d="M8 5v14l11-7z"></path>';
+                    if (playText) playText.textContent = 'Play Audio';
+                    if (playBtn) {
+                        playBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                        playBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    }
+                }
+            });
+        }
+        if (App.sharedAudioQueueManager) {
+            await App.sharedAudioQueueManager.handleGlobalStop();
+        }
+        const transcriptAudio = document.getElementById('audioElement');
+        if (transcriptAudio && !transcriptAudio.paused) {
+            transcriptAudio.pause();
+            transcriptAudio.currentTime = 0;
+            App._setAudioPlayerUIState('IDLE');
+        }
+
+        // Show loading state
+        if (playBtn) {
+            playBtn.disabled = true;
+            if (playText) playText.textContent = 'Loading…';
+        }
+
         // If different job or no audio loaded, load it
         if (!App._ledgerAudio || App._ledgerAudioJobId !== jobId) {
             if (App._ledgerAudio) {
@@ -2737,16 +3175,21 @@ const App = {
                         if (playIcon) playIcon.innerHTML = '<path d="M8 5v14l11-7z"></path>';
                         if (playText) playText.textContent = 'Play Audio';
                         if (playBtn) {
+                            playBtn.disabled = false;
                             playBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
                             playBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
                         }
                     };
                 } else {
+                    if (playBtn) playBtn.disabled = false;
+                    if (playText) playText.textContent = 'Play Audio';
                     alert('Failed to load audio');
                     return;
                 }
             } catch (e) {
                 console.error('Audio load failed:', e);
+                if (playBtn) playBtn.disabled = false;
+                if (playText) playText.textContent = 'Play Audio';
                 alert('Failed to load audio');
                 return;
             }
@@ -2754,8 +3197,22 @@ const App = {
 
         // Play from beginning
         App._ledgerAudio.currentTime = 0;
-        App._ledgerAudio.play();
+        try {
+            const p = App._ledgerAudio.play();
+            if (p !== undefined) await p;
+        } catch (e) {
+            console.error('Ledger audio play failed:', e);
+            if (playBtn) playBtn.disabled = false;
+            if (playText) playText.textContent = 'Play Audio';
+            return;
+        }
+
+        if (App.audioController) {
+            App.audioController.setActiveAudio(App._ledgerAudio, 'ledger-' + jobId);
+        }
+
         App._ledgerAudioPlaying = true;
+        if (playBtn) playBtn.disabled = false;
         if (playIcon) playIcon.innerHTML = '<path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path>';
         if (playText) playText.textContent = 'Pause';
         if (playBtn) {
@@ -2777,5 +3234,5 @@ if (typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { App, SharedAudioQueueManager };
+    module.exports = { App, CentralizedAudioController, SharedAudioQueueManager };
 }
