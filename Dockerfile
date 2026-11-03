@@ -19,6 +19,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Build-time dependency verification for Celery/Kombu/Redis compatibility
+RUN python -c "import celery, kombu, redis; print(f'[BUILD VERIFICATION] Celery: {celery.__version__}, Kombu: {kombu.__version__}, Redis: {redis.__version__}')"
+
 # Copy application code
 COPY . .
 

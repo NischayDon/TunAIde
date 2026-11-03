@@ -17,6 +17,15 @@ from app.db import models
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup verification for dependency versions
+    try:
+        import celery
+        import kombu
+        import redis
+        print(f"[Web Startup Verification] Celery: {celery.__version__}, Kombu: {kombu.__version__}, Redis: {redis.__version__}")
+    except Exception as e:
+        print(f"[Web Startup Verification Warning]: {e}")
+
     # Startup: Ensure DB is connected
     import time
     from sqlalchemy import text
