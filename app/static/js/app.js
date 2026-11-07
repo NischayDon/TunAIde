@@ -621,6 +621,11 @@ const App = {
         clientCount: 0,
         currentClient: null,
         ledgerSearchQuery: '',
+        ledgerServiceTypeFilter: '',
+        ledgerPriorityFilter: '',
+        ledgerStatusFilter: '',
+        ledgerAssigneeFilter: '',
+        assignableUsers: [],
         editingClientId: null,
         activeProfileSection: null,
         loadingClients: false
@@ -780,6 +785,7 @@ const App = {
         App.state.view = viewName;
         App.state.activeActionMenu = null;
         if (viewName === 'ledger') {
+            App.loadAssignableUsers();
             App.loadClients();
         }
 
@@ -1717,11 +1723,22 @@ const App = {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     },
 
+    loadAssignableUsers: async () => {
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/users`);
+            if (res.ok) {
+                App.state.assignableUsers = await res.json();
+            }
+        } catch (e) {
+            console.error("Error loading assignable users:", e);
+        }
+    },
+
     loadClients: async (search = App.state.ledgerSearchQuery) => {
         App.state.loadingClients = true;
         const tbody = document.getElementById('ledgerTableBody');
         if (tbody && (!App.state.clients || App.state.clients.length === 0)) {
-            tbody.innerHTML = '<tr><td colspan="4" class="py-16 text-center">' + ThinkingLoader.section('weaving', 'Loading client records…') + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="py-16 text-center">' + ThinkingLoader.section('weaving', 'Loading client records…') + '</td></tr>';
             ThinkingLoader.init(tbody);
         }
 
@@ -1729,6 +1746,18 @@ const App = {
             const params = new URLSearchParams();
             if (search && search.trim()) {
                 params.set('search', search.trim());
+            }
+            if (App.state.ledgerServiceTypeFilter) {
+                params.set('service_type', App.state.ledgerServiceTypeFilter);
+            }
+            if (App.state.ledgerPriorityFilter) {
+                params.set('priority', App.state.ledgerPriorityFilter);
+            }
+            if (App.state.ledgerStatusFilter) {
+                params.set('status', App.state.ledgerStatusFilter);
+            }
+            if (App.state.ledgerAssigneeFilter) {
+                params.set('assigned_to_id', App.state.ledgerAssigneeFilter);
             }
             params.set('limit', '100');
             const res = await App.authFetch(`${App.API_URL}/api/ledger/clients?${params.toString()}`);
@@ -1758,14 +1787,15 @@ const App = {
         if (!tbody) return;
 
         if (App.state.loadingClients && (!App.state.clients || App.state.clients.length === 0)) {
-            tbody.innerHTML = '<tr><td colspan="4" class="py-16 text-center">' + ThinkingLoader.section('weaving', 'Loading client records…') + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="py-16 text-center">' + ThinkingLoader.section('weaving', 'Loading client records…') + '</td></tr>';
             ThinkingLoader.init(tbody);
             return;
         }
 
         const clients = App.state.clients || [];
+        const hasFilters = !!(App.state.ledgerSearchQuery || App.state.ledgerServiceTypeFilter || App.state.ledgerPriorityFilter || App.state.ledgerStatusFilter || App.state.ledgerAssigneeFilter);
         if (clients.length === 0) {
-            tbody.innerHTML = Components.LedgerEmptyState(!!App.state.ledgerSearchQuery);
+            tbody.innerHTML = Components.LedgerEmptyState(hasFilters);
             return;
         }
 
@@ -1788,7 +1818,38 @@ const App = {
         App.loadClients('');
     },
 
-    openNewClientModal: () => {
+    onLedgerFilterChange: (key, value) => {
+        if (key === 'service_type') App.state.ledgerServiceTypeFilter = value;
+        else if (key === 'priority') App.state.ledgerPriorityFilter = value;
+        else if (key === 'status') App.state.ledgerStatusFilter = value;
+        else if (key === 'assigned_to_id') App.state.ledgerAssigneeFilter = value;
+        App.loadClients();
+    },
+
+    clearAllLedgerFilters: () => {
+        App.state.ledgerSearchQuery = '';
+        App.state.ledgerServiceTypeFilter = '';
+        App.state.ledgerPriorityFilter = '';
+        App.state.ledgerStatusFilter = '';
+        App.state.ledgerAssigneeFilter = '';
+        const main = document.getElementById('main-content');
+        if (main && App.state.view === 'ledger') {
+            main.innerHTML = Components.LedgerView(App.state.clients, App.state.clientCount, '', false);
+        }
+        App.loadClients();
+    },
+
+    execRichCommand: (editorId, command, value = null) => {
+        const editor = document.getElementById(editorId);
+        if (!editor) return;
+        editor.focus();
+        document.execCommand(command, false, value);
+    },
+
+    openNewClientModal: async () => {
+        if (!App.state.assignableUsers || App.state.assignableUsers.length === 0) {
+            await App.loadAssignableUsers();
+        }
         const container = document.getElementById('newClientModalContainer') || document.body;
         let wrapper = document.getElementById('newClientModalWrapper');
         if (!wrapper) {
@@ -1797,8 +1858,8 @@ const App = {
             container.appendChild(wrapper);
         }
         wrapper.innerHTML = Components.NewClientModal();
-        const fnInput = document.getElementById('newClientFirstName');
-        if (fnInput) fnInput.focus();
+        const snInput = document.getElementById('newClientSurname');
+        if (snInput) snInput.focus();
     },
 
     closeNewClientModal: () => {
@@ -1807,68 +1868,170 @@ const App = {
     },
 
     updateNewClientPreview: () => {
+        const sn = (document.getElementById('newClientSurname')?.value || '').trim().toUpperCase();
         const fn = (document.getElementById('newClientFirstName')?.value || '').trim();
-        const sn = (document.getElementById('newClientSurname')?.value || '').trim();
-        const derived = `${fn} ${sn}`.trim() || 'None';
+        const derived = `${sn} ${fn}`.trim() || '—';
         const previewEl = document.getElementById('newClientDerivedPreview');
         if (previewEl) previewEl.textContent = derived;
     },
 
     submitNewClient: async () => {
-        const fn = (document.getElementById('newClientFirstName')?.value || '').trim();
-        const sn = (document.getElementById('newClientSurname')?.value || '').trim();
-        const phone = (document.getElementById('newClientPhone')?.value || '').trim();
-        const dob = document.getElementById('newClientDob')?.value || null;
         const errEl = document.getElementById('newClientError');
         const btn = document.getElementById('saveNewClientBtn');
-
-        if (!fn || !sn) {
+        const showError = (msg) => {
             if (errEl) {
-                errEl.textContent = 'First Name and Surname are both required.';
+                errEl.textContent = msg;
                 errEl.classList.remove('hidden');
+                errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                alert(msg);
             }
-            return;
-        }
+        };
+
+        if (errEl) errEl.classList.add('hidden');
+
+        // Extract values
+        const client_date = document.getElementById('newClientDate')?.value || new Date().toISOString().split('T')[0];
+        const service_type = document.getElementById('newClientServiceType')?.value || 'OFPRA';
+        const priority = document.getElementById('newClientPriority')?.value || 'Normal';
+        const status = document.getElementById('newClientStatus')?.value || 'Inwarded';
+        const assigned_to_id = document.getElementById('newClientAssignedTo')?.value || null;
+
+        const surname = (document.getElementById('newClientSurname')?.value || '').trim().toUpperCase();
+        const first_name = (document.getElementById('newClientFirstName')?.value || '').trim();
+        const date_of_birth = document.getElementById('newClientDob')?.value || null;
+        const place_of_birth = (document.getElementById('newClientPlaceOfBirth')?.value || '').trim();
+        const birth_place = (document.getElementById('newClientBirthPlace')?.value || '').trim();
+        const gender = document.getElementById('newClientGender')?.value || null;
+        const nationality = (document.getElementById('newClientNationality')?.value || 'SRI LANKAISE').trim();
+        const marital_status = document.getElementById('newClientMaritalStatus')?.value || null;
+        const personal_country = (document.getElementById('newClientPersonalCountry')?.value || '').trim() || null;
+        const sp = document.getElementById('newClientSp')?.value || null;
+        const ef = document.getElementById('newClientEf')?.value || null;
+
+        const numero_ofpra = (document.getElementById('newClientOfpra')?.value || '').trim() || null;
+        const numero_aps = (document.getElementById('newClientAps')?.value || '').trim() || null;
+        const delivered_by = (document.getElementById('newClientDeliveredBy')?.value || '').trim() || null;
+        const from_date = document.getElementById('newClientFrom')?.value || null;
+        const to_date = document.getElementById('newClientTo')?.value || null;
+
+        const phone_number = (document.getElementById('newClientPhone')?.value || '').trim();
+        const secondary_phone = (document.getElementById('newClientSecPhone')?.value || '').trim() || null;
+        const email = (document.getElementById('newClientEmail')?.value || '').trim() || null;
+        const address = (document.getElementById('newClientAddress')?.value || '').trim();
+        const ville = (document.getElementById('newClientVille')?.value || '').trim();
+        const postal_code = (document.getElementById('newClientPostalCode')?.value || '').trim();
+        const country = (document.getElementById('newClientContactCountry')?.value || '').trim() || null;
+
+        const remarksEditor = document.getElementById('newClientRemarks');
+        const remarks = remarksEditor ? remarksEditor.innerHTML.trim() : null;
+
+        // Family info
+        const father_name = (document.getElementById('newClientFatherName')?.value || '').trim();
+        const mother_name = (document.getElementById('newClientMotherName')?.value || '').trim();
+        const parents_details = (father_name || mother_name) ? { father_name, mother_name } : null;
+
+        const spouse_name = (document.getElementById('newClientSpouseName')?.value || '').trim();
+        const spouse_maiden = (document.getElementById('newClientSpouseMaiden')?.value || '').trim();
+        const spouse_dob = document.getElementById('newClientSpouseDob')?.value || null;
+        const epouse = (spouse_name || spouse_maiden || spouse_dob) ? { name: spouse_name, maiden_name: spouse_maiden, date_of_birth: spouse_dob } : null;
+
+        // Validations
+        const alphaRegex = /^[A-Za-zÀ-ÖØ-öø-ÿ\s\-']+$/;
+        if (!surname) return showError('Surname is required.');
+        if (!alphaRegex.test(surname)) return showError('Surname must contain alphabets only.');
+        if (!first_name) return showError('First Name is required.');
+        if (!alphaRegex.test(first_name)) return showError('First Name must contain alphabets only.');
+        if (!date_of_birth) return showError('Date of Birth is required.');
+        if (!place_of_birth) return showError('Place of Birth is required.');
+        if (!alphaRegex.test(place_of_birth)) return showError('Place of Birth must contain alphabets only.');
+        if (!birth_place) return showError('Birth Place is required.');
+        if (!alphaRegex.test(birth_place)) return showError('Birth Place must contain alphabets only.');
+        if (!sp) return showError('SP date is required.');
+        if (!ef) return showError('EF date is required.');
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (date_of_birth > todayStr) return showError('Date of Birth cannot be in the future.');
+        if (sp > todayStr) return showError('SP date cannot be in the future.');
+        if (ef > todayStr) return showError('EF date cannot be in the future.');
+        if (from_date && from_date > todayStr) return showError('From date cannot be in the future.');
+        if (to_date && to_date > todayStr) return showError('To date cannot be in the future.');
+        if (from_date && to_date && to_date < from_date) return showError('To date must be on or after From date.');
+
+        if (numero_aps && !/^\d{10}$/.test(numero_aps)) return showError('Numéro APS must be exactly 10 numeric digits.');
+        if (!phone_number) return showError('Primary Phone is required.');
+        if (!/^0\d{9}$/.test(phone_number)) return showError('Primary Phone must be exactly 10 digits and start with 0.');
+        if (secondary_phone && !/^0\d{9}$/.test(secondary_phone)) return showError('Secondary Phone must be exactly 10 digits and start with 0.');
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showError('Invalid Email Address format.');
+
+        if (!address) return showError('Address is required.');
+        if (!ville) return showError('Ville is required.');
+        if (!postal_code) return showError('Postal Code is required.');
+        if (!/^\d{5}$/.test(postal_code)) return showError('Postal Code must be exactly 5 numeric digits.');
 
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = ThinkingLoader.inline('working', 'Saving…');
+            btn.innerHTML = ThinkingLoader.inline('working', 'Creating client…');
             ThinkingLoader.init(btn);
         }
+
+        const payload = {
+            client_date,
+            service_type,
+            priority,
+            status,
+            assigned_to_id: assigned_to_id || null,
+            surname,
+            first_name,
+            date_of_birth,
+            place_of_birth,
+            birth_place,
+            gender: gender || null,
+            nationality: nationality || null,
+            marital_status: marital_status || null,
+            personal_country: personal_country || null,
+            sp,
+            ef,
+            numero_ofpra: numero_ofpra || null,
+            numero_aps: numero_aps || null,
+            delivered_by: delivered_by || null,
+            from_date: from_date || null,
+            to_date: to_date || null,
+            phone_number,
+            secondary_phone: secondary_phone || null,
+            email: email || null,
+            address,
+            ville,
+            postal_code,
+            country: country || null,
+            remarks: remarks || null,
+            parents_details: parents_details || null,
+            epouse: epouse || null
+        };
 
         try {
             const res = await App.authFetch(`${App.API_URL}/api/ledger/clients`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    first_name: fn,
-                    surname: sn,
-                    phone_number: phone || null,
-                    date_of_birth: dob || null
-                })
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
                 const newClient = await res.json();
                 App.closeNewClientModal();
                 await App.loadClients();
+                App.openClientProfile(newClient.id);
             } else {
                 const errData = await res.json().catch(() => ({}));
-                if (errEl) {
-                    errEl.textContent = errData.detail || 'Failed to save client record.';
-                    errEl.classList.remove('hidden');
-                }
+                showError(errData.detail || 'Failed to create client record.');
             }
         } catch (e) {
             console.error("Save client error:", e);
-            if (errEl) {
-                errEl.textContent = 'Network error saving client.';
-                errEl.classList.remove('hidden');
-            }
+            showError('Network error saving client.');
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = 'Save Client';
+                btn.innerHTML = 'Save Client Record';
             }
         }
     },
@@ -1892,22 +2055,31 @@ const App = {
     },
 
     updateInlineNamePreview: (clientId) => {
+        const sn = (document.getElementById(`edit-sn-${clientId}`)?.value || '').trim().toUpperCase();
         const fn = (document.getElementById(`edit-fn-${clientId}`)?.value || '').trim();
-        const sn = (document.getElementById(`edit-sn-${clientId}`)?.value || '').trim();
-        const derived = `${fn} ${sn}`.trim() || '—';
+        const derived = `${sn} ${fn}`.trim() || '—';
         const el = document.getElementById(`edit-preview-${clientId}`);
         if (el) el.textContent = derived;
     },
 
     saveInlineEdit: async (clientId) => {
+        const sn = (document.getElementById(`edit-sn-${clientId}`)?.value || '').trim().toUpperCase();
         const fn = (document.getElementById(`edit-fn-${clientId}`)?.value || '').trim();
-        const sn = (document.getElementById(`edit-sn-${clientId}`)?.value || '').trim();
         const phone = (document.getElementById(`edit-phone-${clientId}`)?.value || '').trim();
-        const dob = document.getElementById(`edit-dob-${clientId}`)?.value || null;
+        const service_type = document.getElementById(`edit-st-${clientId}`)?.value || null;
+        const priority = document.getElementById(`edit-pr-${clientId}`)?.value || null;
+        const status = document.getElementById(`edit-status-${clientId}`)?.value || null;
+        const assigned_to_id = document.getElementById(`edit-assignee-${clientId}`)?.value || null;
+        const client_date = document.getElementById(`edit-date-${clientId}`)?.value || null;
         const btn = document.getElementById(`saveInlineBtn-${clientId}`);
 
-        if (!fn || !sn) {
-            alert('First Name and Surname are required.');
+        if (!sn || !fn) {
+            alert('Surname and First Name are required.');
+            return;
+        }
+
+        if (phone && !/^0\d{9}$/.test(phone)) {
+            alert('Phone number must be 10 digits starting with 0.');
             return;
         }
 
@@ -1918,15 +2090,21 @@ const App = {
         }
 
         try {
+            const payload = {
+                surname: sn,
+                first_name: fn,
+                phone_number: phone || null,
+                service_type: service_type || null,
+                priority: priority || null,
+                status: status || null,
+                assigned_to_id: assigned_to_id || null,
+                client_date: client_date || null
+            };
+
             const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    first_name: fn,
-                    surname: sn,
-                    phone_number: phone || null,
-                    date_of_birth: dob || null
-                })
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
@@ -1955,6 +2133,9 @@ const App = {
     },
 
     openClientProfile: async (clientId) => {
+        if (!App.state.assignableUsers || App.state.assignableUsers.length === 0) {
+            await App.loadAssignableUsers();
+        }
         try {
             const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`);
             if (res.ok) {
@@ -1997,72 +2178,69 @@ const App = {
         }
 
         let payload = {};
-        if (sectionName === 'sectionA') {
+        if (sectionName === 'header') {
             payload = {
+                client_date: document.getElementById('secHdr-date')?.value || null,
+                service_type: document.getElementById('secHdr-service_type')?.value || null,
+                priority: document.getElementById('secHdr-priority')?.value || null,
+                status: document.getElementById('secHdr-status')?.value || null,
+                assigned_to_id: document.getElementById('secHdr-assigned_to')?.value || null
+            };
+        } else if (sectionName === 'sectionA') {
+            payload = {
+                surname: document.getElementById('secA-surname')?.value?.trim().toUpperCase(),
                 first_name: document.getElementById('secA-first_name')?.value?.trim(),
-                surname: document.getElementById('secA-surname')?.value?.trim(),
                 date_of_birth: document.getElementById('secA-date_of_birth')?.value || null,
+                place_of_birth: document.getElementById('secA-place_of_birth')?.value?.trim() || null,
+                birth_place: document.getElementById('secA-birth_place')?.value?.trim() || null,
                 gender: document.getElementById('secA-gender')?.value?.trim() || null,
                 nationality: document.getElementById('secA-nationality')?.value?.trim() || null,
-                place_of_birth: document.getElementById('secA-place_of_birth')?.value?.trim() || null,
-                current_country: document.getElementById('secA-current_country')?.value?.trim() || null,
                 marital_status: document.getElementById('secA-marital_status')?.value?.trim() || null,
-                preferred_language: document.getElementById('secA-preferred_language')?.value?.trim() || null,
+                personal_country: document.getElementById('secA-personal_country')?.value?.trim() || null,
+                sp: document.getElementById('secA-sp')?.value || null,
+                ef: document.getElementById('secA-ef')?.value || null
             };
         } else if (sectionName === 'sectionB') {
             payload = {
-                phone_number: document.getElementById('secB-phone_number')?.value?.trim() || null,
-                secondary_phone: document.getElementById('secB-secondary_phone')?.value?.trim() || null,
-                email: document.getElementById('secB-email')?.value?.trim() || null,
-                address: document.getElementById('secB-address')?.value?.trim() || null,
-                previous_address: document.getElementById('secB-previous_address')?.value?.trim() || null,
-                city: document.getElementById('secB-city')?.value?.trim() || null,
-                state_province: document.getElementById('secB-state_province')?.value?.trim() || null,
-                postal_code: document.getElementById('secB-postal_code')?.value?.trim() || null,
-                country: document.getElementById('secB-country')?.value?.trim() || null,
+                numero_ofpra: document.getElementById('secB-numero_ofpra')?.value?.trim() || null,
+                numero_aps: document.getElementById('secB-numero_aps')?.value?.trim() || null,
+                delivered_by: document.getElementById('secB-delivered_by')?.value?.trim() || null,
+                from_date: document.getElementById('secB-from_date')?.value || null,
+                to_date: document.getElementById('secB-to_date')?.value || null
             };
         } else if (sectionName === 'sectionC') {
             payload = {
-                identification_info: {
-                    passport_number: document.getElementById('secC-passport_number')?.value?.trim() || null,
-                    passport_country: document.getElementById('secC-passport_country')?.value?.trim() || null,
-                    passport_issue_date: document.getElementById('secC-passport_issue_date')?.value || null,
-                    passport_expiry_date: document.getElementById('secC-passport_expiry_date')?.value || null,
-                    national_id: document.getElementById('secC-national_id')?.value?.trim() || null,
-                    other_id: document.getElementById('secC-other_id')?.value?.trim() || null,
-                }
+                phone_number: document.getElementById('secC-phone_number')?.value?.trim() || null,
+                secondary_phone: document.getElementById('secC-secondary_phone')?.value?.trim() || null,
+                email: document.getElementById('secC-email')?.value?.trim() || null,
+                address: document.getElementById('secC-address')?.value?.trim() || null,
+                ville: document.getElementById('secC-ville')?.value?.trim() || null,
+                postal_code: document.getElementById('secC-postal_code')?.value?.trim() || null,
+                country: document.getElementById('secC-country')?.value?.trim() || null
             };
         } else if (sectionName === 'sectionD') {
+            const remarksEditor = document.getElementById('secD-remarks');
             payload = {
-                case_info: {
-                    case_reference: document.getElementById('secD-case_reference')?.value?.trim() || null,
-                    case_type: document.getElementById('secD-case_type')?.value?.trim() || null,
-                    case_status: document.getElementById('secD-case_status')?.value?.trim() || null,
-                    assigned_worker: document.getElementById('secD-assigned_worker')?.value?.trim() || null,
-                    date_case_opened: document.getElementById('secD-date_case_opened')?.value || null,
-                    country_of_origin: document.getElementById('secD-country_of_origin')?.value?.trim() || null,
-                    country_of_application: document.getElementById('secD-country_of_application')?.value?.trim() || null,
-                    legal_reference: document.getElementById('secD-legal_reference')?.value?.trim() || null,
-                    case_summary: document.getElementById('secD-case_summary')?.value?.trim() || null,
-                    case_notes: document.getElementById('secD-case_notes')?.value?.trim() || null,
-                }
+                remarks: remarksEditor ? remarksEditor.innerHTML.trim() : null
             };
         } else if (sectionName === 'sectionE') {
             payload = {
-                background_info: {
-                    education: document.getElementById('secE-education')?.value?.trim() || null,
-                    employment: document.getElementById('secE-employment')?.value?.trim() || null,
-                    family_info: document.getElementById('secE-family_info')?.value?.trim() || null,
-                    personal_history: document.getElementById('secE-personal_history')?.value?.trim() || null,
-                    previous_applications: document.getElementById('secE-previous_applications')?.value?.trim() || null,
+                parents_details: {
+                    father_name: document.getElementById('secE-father_name')?.value?.trim() || null,
+                    mother_name: document.getElementById('secE-mother_name')?.value?.trim() || null,
+                    notes: document.getElementById('secE-notes')?.value?.trim() || null
                 }
             };
-        } else if (sectionName === 'sectionF') {
+        } else if (sectionName === 'sectionG') {
             payload = {
-                additional_info: {
-                    notes: document.getElementById('secF-notes')?.value?.trim() || null,
-                    important_dates: document.getElementById('secF-important_dates')?.value?.trim() || null,
-                    other_details: document.getElementById('secF-other_details')?.value?.trim() || null,
+                epouse: {
+                    name: document.getElementById('secG-name')?.value?.trim() || null,
+                    maiden_name: document.getElementById('secG-maiden_name')?.value?.trim() || null,
+                    date_of_birth: document.getElementById('secG-date_of_birth')?.value || null,
+                    marriage_date: document.getElementById('secG-marriage_date')?.value || null,
+                    marriage_place: document.getElementById('secG-marriage_place')?.value?.trim() || null,
+                    nationality: document.getElementById('secG-nationality')?.value?.trim() || null,
+                    notes: document.getElementById('secG-notes')?.value?.trim() || null
                 }
             };
         }
@@ -2094,6 +2272,169 @@ const App = {
         }
     },
 
+    openAddSiblingModal: (clientId) => {
+        const container = document.getElementById('familyModalContainer') || document.body;
+        container.innerHTML = Components.SiblingModal(clientId);
+        const nameInput = document.getElementById('siblingModalName');
+        if (nameInput) nameInput.focus();
+    },
+
+    closeSiblingModal: () => {
+        const container = document.getElementById('familyModalContainer');
+        if (container) container.innerHTML = '';
+    },
+
+    saveSibling: async (clientId) => {
+        const name = (document.getElementById('siblingModalName')?.value || '').trim();
+        const relationship = document.getElementById('siblingModalRel')?.value || 'Brother';
+        const gender = document.getElementById('siblingModalGender')?.value || 'Male';
+        const date_of_birth = document.getElementById('siblingModalDob')?.value || null;
+        const notes = (document.getElementById('siblingModalNotes')?.value || '').trim() || null;
+
+        if (!name) {
+            alert('Sibling name is required.');
+            return;
+        }
+
+        const currentClient = App.state.currentClient;
+        const currentSiblings = Array.isArray(currentClient.siblings) ? [...currentClient.siblings] : [];
+        currentSiblings.push({ name, relationship, gender, date_of_birth, notes });
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siblings: currentSiblings })
+            });
+
+            if (res.ok) {
+                App.state.currentClient = await res.json();
+                App.closeSiblingModal();
+                const main = document.getElementById('main-content');
+                if (main && App.state.view === 'client-profile') {
+                    main.innerHTML = Components.ClientProfileView(App.state.currentClient, null);
+                    ThinkingLoader.init(main);
+                }
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert('Failed to add sibling: ' + (err.detail || 'Validation error'));
+            }
+        } catch (e) {
+            console.error("Add sibling error:", e);
+            alert('Network error adding sibling.');
+        }
+    },
+
+    deleteSibling: async (clientId, index) => {
+        if (!confirm('Are you sure you want to remove this sibling record?')) return;
+        const currentClient = App.state.currentClient;
+        const currentSiblings = Array.isArray(currentClient.siblings) ? [...currentClient.siblings] : [];
+        currentSiblings.splice(index, 1);
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siblings: currentSiblings })
+            });
+
+            if (res.ok) {
+                App.state.currentClient = await res.json();
+                const main = document.getElementById('main-content');
+                if (main && App.state.view === 'client-profile') {
+                    main.innerHTML = Components.ClientProfileView(App.state.currentClient, null);
+                    ThinkingLoader.init(main);
+                }
+            } else {
+                alert('Failed to delete sibling.');
+            }
+        } catch (e) {
+            console.error("Delete sibling error:", e);
+            alert('Network error deleting sibling.');
+        }
+    },
+
+    openAddKidModal: (clientId) => {
+        const container = document.getElementById('familyModalContainer') || document.body;
+        container.innerHTML = Components.KidModal(clientId);
+        const nameInput = document.getElementById('kidModalName');
+        if (nameInput) nameInput.focus();
+    },
+
+    closeKidModal: () => {
+        const container = document.getElementById('familyModalContainer');
+        if (container) container.innerHTML = '';
+    },
+
+    saveKid: async (clientId) => {
+        const name = (document.getElementById('kidModalName')?.value || '').trim();
+        const gender = document.getElementById('kidModalGender')?.value || 'Male';
+        const date_of_birth = document.getElementById('kidModalDob')?.value || null;
+        const place_of_birth = (document.getElementById('kidModalPob')?.value || '').trim() || null;
+        const notes = (document.getElementById('kidModalNotes')?.value || '').trim() || null;
+
+        if (!name) {
+            alert("Child's name is required.");
+            return;
+        }
+
+        const currentClient = App.state.currentClient;
+        const currentKids = Array.isArray(currentClient.kids) ? [...currentClient.kids] : [];
+        currentKids.push({ name, gender, date_of_birth, place_of_birth, notes });
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kids: currentKids })
+            });
+
+            if (res.ok) {
+                App.state.currentClient = await res.json();
+                App.closeKidModal();
+                const main = document.getElementById('main-content');
+                if (main && App.state.view === 'client-profile') {
+                    main.innerHTML = Components.ClientProfileView(App.state.currentClient, null);
+                    ThinkingLoader.init(main);
+                }
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert('Failed to add child: ' + (err.detail || 'Validation error'));
+            }
+        } catch (e) {
+            console.error("Add kid error:", e);
+            alert('Network error adding child.');
+        }
+    },
+
+    deleteKid: async (clientId, index) => {
+        if (!confirm('Are you sure you want to remove this child record?')) return;
+        const currentClient = App.state.currentClient;
+        const currentKids = Array.isArray(currentClient.kids) ? [...currentClient.kids] : [];
+        currentKids.splice(index, 1);
+
+        try {
+            const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kids: currentKids })
+            });
+
+            if (res.ok) {
+                App.state.currentClient = await res.json();
+                const main = document.getElementById('main-content');
+                if (main && App.state.view === 'client-profile') {
+                    main.innerHTML = Components.ClientProfileView(App.state.currentClient, null);
+                    ThinkingLoader.init(main);
+                }
+            } else {
+                alert('Failed to delete child.');
+            }
+        } catch (e) {
+            console.error("Delete kid error:", e);
+            alert('Network error deleting child.');
+        }
+    },
     confirmDeleteClient: (clientId, clientName, event) => {
         if (event) event.stopPropagation();
         document.querySelectorAll('.action-menu-dropdown').forEach(d => d.classList.add('hidden'));

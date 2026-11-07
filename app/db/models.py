@@ -43,6 +43,7 @@ class User(Base):
     
     jobs = relationship("Job", back_populates="user")
     clients = relationship("Client", back_populates="creator", foreign_keys="Client.created_by_id")
+    assigned_clients = relationship("Client", back_populates="assigned_to", foreign_keys="Client.assigned_to_id")
 
 class AudioQueueItem(Base):
     __tablename__ = "audio_queue"
@@ -142,31 +143,60 @@ class Client(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     created_by_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
 
+    # Header / Workflow fields
+    reference_number = Column(String, unique=True, index=True, nullable=True)
+    client_date = Column(String, nullable=True)
+    service_type = Column(String, nullable=True, index=True)
+    priority = Column(String, default="Normal", nullable=True, index=True)
+    status = Column(String, default="Inwarded", nullable=True, index=True)
+    assigned_to_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+
     # Core primary fields
     first_name = Column(String, nullable=False, index=True)
     surname = Column(String, nullable=False, index=True)
-    phone_number = Column(String, nullable=True, index=True)
+    phone_number = Column(String, nullable=True, index=True)  # Primary Phone
     date_of_birth = Column(String, nullable=True)
 
     # Section A: Personal Information
-    gender = Column(String, nullable=True)
-    nationality = Column(String, nullable=True)
     place_of_birth = Column(String, nullable=True)
-    current_country = Column(String, nullable=True)
+    birth_place = Column(String, nullable=True)  # Separate field preserved from spreadsheet
+    gender = Column(String, nullable=True)
+    nationality = Column(String, default="SRI LANKAISE", nullable=True)
     marital_status = Column(String, nullable=True)
+    personal_country = Column(String, nullable=True)
+    sp = Column(String, nullable=True)  # SP date
+    ef = Column(String, nullable=True)  # EF date
+    current_country = Column(String, nullable=True)
     preferred_language = Column(String, nullable=True)
 
-    # Section B: Contact Information
+    # Section B: Identification / OFPRA Information
+    numero_ofpra = Column(String, nullable=True)
+    numero_aps = Column(String, nullable=True)
+    from_date = Column(String, nullable=True)
+    to_date = Column(String, nullable=True)
+    delivered_by = Column(String, nullable=True)
+
+    # Section C: Contact Information
     secondary_phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
     address = Column(Text, nullable=True)
     previous_address = Column(Text, nullable=True)
+    ville = Column(String, nullable=True)
+    postal_code = Column(String, nullable=True)
     country = Column(String, nullable=True)
     state_province = Column(String, nullable=True)
     city = Column(String, nullable=True)
-    postal_code = Column(String, nullable=True)
 
-    # Sections C-F: Structured extensible sections
+    # Section D: Remarks (Rich Text)
+    remarks = Column(Text, nullable=True)
+
+    # Sections E-H: Family Information
+    parents_details = Column(JSON, default=dict)
+    siblings = Column(JSON, default=list)
+    epouse = Column(JSON, default=dict)
+    kids = Column(JSON, default=list)
+
+    # Legacy structured extensible sections for backwards compatibility
     identification_info = Column(JSON, default=dict)
     case_info = Column(JSON, default=dict)
     background_info = Column(JSON, default=dict)
@@ -176,15 +206,20 @@ class Client(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     creator = relationship("User", foreign_keys=[created_by_id], back_populates="clients")
+    assigned_to = relationship("User", foreign_keys=[assigned_to_id], back_populates="assigned_clients")
     files = relationship("ClientFile", back_populates="client", cascade="all, delete-orphan", order_by="desc(ClientFile.uploaded_at)")
 
     @property
     def full_name(self) -> str:
+        last = (self.surname or "").strip().upper()
         first = (self.first_name or "").strip()
-        last = (self.surname or "").strip()
-        if first and last:
-            return f"{first} {last}"
-        return first or last or ""
+        if last and first:
+            return f"{last} {first}"
+        return last or first or ""
+
+    @property
+    def assigned_to_name(self) -> str | None:
+        return self.assigned_to.username if self.assigned_to else None
 
 
 class ClientFile(Base):

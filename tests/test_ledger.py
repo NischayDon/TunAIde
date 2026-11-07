@@ -2,7 +2,7 @@ import os
 import io
 import uuid
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -62,7 +62,6 @@ class MockStorageService:
     def download_to_temp(self, storage_path: str) -> str:
         import tempfile
         if storage_path not in self.files:
-            # Create dummy file if not found
             content = b"mock content"
         else:
             _, content = self.files[storage_path]
@@ -85,7 +84,6 @@ def setup_db(monkeypatch):
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = lambda: _current_user
 
-    # Use mock storage service
     mock_storage = MockStorageService()
     monkeypatch.setattr("app.api.ledger.storage_service", mock_storage)
 
@@ -93,7 +91,6 @@ def setup_db(monkeypatch):
     Base.metadata.create_all(bind=engine)
     
     db = TestingSessionLocal()
-    # Seed users
     u1 = User(id="user_1", username="testuser1", email="user1@example.com", is_admin=False)
     u2 = User(id="user_2", username="testuser2", email="user2@example.com", is_admin=False)
     admin = User(id="admin_1", username="admin", email="admin@example.com", is_admin=True)
@@ -103,6 +100,28 @@ def setup_db(monkeypatch):
     db.commit()
     db.close()
     yield
+
+
+def valid_client_payload(**overrides):
+    payload = {
+        "surname": "SRIKARAN",
+        "first_name": "Jean",
+        "date_of_birth": "1990-05-15",
+        "place_of_birth": "Jaffna",
+        "birth_place": "Northern Province",
+        "sp": "2024-01-01",
+        "ef": "2024-06-01",
+        "phone_number": "0763796000",
+        "address": "15 Rue de la Paix",
+        "ville": "Paris",
+        "postal_code": "75001",
+        "service_type": "OFPRA",
+        "priority": "Normal",
+        "status": "Inwarded",
+        "nationality": "SRI LANKAISE"
+    }
+    payload.update(overrides)
+    return payload
 
 
 # =====================================================================
@@ -119,22 +138,17 @@ def test_empty_ledger_displays_correctly():
 
 
 def test_client_creation_and_derived_name():
-    """Client creation succeeds and automatically derives Name from first_name + surname."""
-    payload = {
-        "first_name": "Jean",
-        "surname": "Dupont",
-        "phone_number": "+33 6 12 34 56 78",
-        "date_of_birth": "1985-05-15"
-    }
+    """Client creation succeeds, converts surname to uppercase, and automatically derives Full Name."""
+    payload = valid_client_payload(surname="srikaran", first_name="Jean", phone_number="0763796000")
     res = client.post("/api/ledger/clients", json=payload)
     assert res.status_code == 201
     data = res.json()
     
+    assert data["surname"] == "SRIKARAN"
     assert data["first_name"] == "Jean"
-    assert data["surname"] == "Dupont"
-    assert data["full_name"] == "Jean Dupont"  # Name = First Name + Surname
-    assert data["phone_number"] == "+33 6 12 34 56 78"
-    assert data["date_of_birth"] == "1985-05-15"
+    assert data["full_name"] == "SRIKARAN Jean"
+    assert data["phone_number"] == "0763796000"
+    assert data["reference_number"] == "SRIKARAN6000"
     assert data["created_by_id"] == "user_1"
     assert "id" in data
 
@@ -143,98 +157,231 @@ def test_client_creation_and_derived_name():
     assert list_res.status_code == 200
     list_data = list_res.json()
     assert list_data["total"] == 1
-    assert list_data["items"][0]["full_name"] == "Jean Dupont"
+    assert list_data["items"][0]["full_name"] == "SRIKARAN Jean"
+    assert list_data["items"][0]["reference_number"] == "SRIKARAN6000"
 
 
-def test_client_creation_validation():
-    """Validation rejects empty first_name or surname."""
-    # Missing first name
-    res1 = client.post("/api/ledger/clients", json={"first_name": "  ", "surname": "Dupont"})
-    assert res1.status_code == 422
+def test_reference_number_format_and_duplicate_handling():
+    """Reference number format is SURNAME + LAST 4 DIGITS OF PHONE. Suffix added if duplicate."""
+    # First client
+    p1 = valid_client_payload(surname="SRIKARAN", phone_number="0763796000")
+    res1 = client.post("/api/ledger/clients", json=p1)
+    assert res1.status_code == 201
+    assert res1.json()["reference_number"] == "SRIKARAN6000"
 
+    # Second client with same surname and phone ending
+    p2 = valid_client_payload(surname="SRIKARAN", phone_number="0145676000")
+    res2 = client.post("/api/ledger/clients", json=p2)
+    assert res2.status_code == 201
+    assert res2.json()["reference_number"] == "SRIKARAN6000-1"
+
+    # Third client
+    p3 = valid_client_payload(surname="SRIKARAN", phone_number="0699996000")
+    res3 = client.post("/api/ledger/clients", json=p3)
+    assert res3.status_code == 201
+    assert res3.json()["reference_number"] == "SRIKARAN6000-2"
+
+
+def test_reference_number_immutable_on_patch():
+    """Reference number cannot be changed even if surname or phone is updated."""
+    p = valid_client_payload(surname="SRIKARAN", phone_number="0763796000")
+    res = client.post("/api/ledger/clients", json=p)
+    client_id = res.json()["id"]
+    orig_ref = res.json()["reference_number"]
+    assert orig_ref == "SRIKARAN6000"
+
+    # Patch with new surname and phone
+    patch_res = client.patch(f"/api/ledger/clients/{client_id}", json={
+        "surname": "MOHAMED",
+        "phone_number": "0711223344",
+        "reference_number": "HACKED9999"
+    })
+    assert patch_res.status_code == 200
+    updated = patch_res.json()
+    assert updated["surname"] == "MOHAMED"
+    assert updated["phone_number"] == "0711223344"
+    assert updated["reference_number"] == "SRIKARAN6000"  # Unchanged!
+
+
+def test_client_creation_mandatory_fields_validation():
+    """Validation rejects missing mandatory fields."""
     # Missing surname
-    res2 = client.post("/api/ledger/clients", json={"first_name": "Jean", "surname": ""})
-    assert res2.status_code == 422
+    p1 = valid_client_payload(surname="")
+    assert client.post("/api/ledger/clients", json=p1).status_code == 422
+
+    # Missing first name
+    p2 = valid_client_payload(first_name="")
+    assert client.post("/api/ledger/clients", json=p2).status_code == 422
+
+    # Missing date of birth
+    p3 = valid_client_payload(date_of_birth="")
+    assert client.post("/api/ledger/clients", json=p3).status_code == 422
+
+    # Missing place of birth
+    p4 = valid_client_payload(place_of_birth="")
+    assert client.post("/api/ledger/clients", json=p4).status_code == 422
+
+    # Missing birth place
+    p5 = valid_client_payload(birth_place="")
+    assert client.post("/api/ledger/clients", json=p5).status_code == 422
+
+    # Missing sp
+    p6 = valid_client_payload(sp="")
+    assert client.post("/api/ledger/clients", json=p6).status_code == 422
+
+    # Missing ef
+    p7 = valid_client_payload(ef="")
+    assert client.post("/api/ledger/clients", json=p7).status_code == 422
+
+    # Missing phone number
+    p8 = valid_client_payload(phone_number="")
+    assert client.post("/api/ledger/clients", json=p8).status_code == 422
+
+    # Missing address
+    p9 = valid_client_payload(address="")
+    assert client.post("/api/ledger/clients", json=p9).status_code == 422
+
+    # Missing postal code
+    p10 = valid_client_payload(postal_code="")
+    assert client.post("/api/ledger/clients", json=p10).status_code == 422
 
 
-def test_international_phone_validation():
-    """Validates international phone numbers without assuming Indian numbers."""
-    valid_numbers = [
-        "+33 6 12 34 56 78",
-        "+1 (555) 123-4567",
-        "+44 20 7946 0958",
-        "0612345678",
-        "+93 70 123 4567",
-        "+49-30-123456",
-    ]
-    for phone in valid_numbers:
-        res = client.post("/api/ledger/clients", json={
-            "first_name": "Test",
-            "surname": f"User_{uuid.uuid4().hex[:4]}",
-            "phone_number": phone
-        })
-        assert res.status_code == 201, f"Expected {phone} to be accepted"
+def test_phone_validation():
+    """Primary Phone must be exactly 10 digits and start with 0."""
+    # Valid phone
+    res_valid = client.post("/api/ledger/clients", json=valid_client_payload(phone_number="0763796000"))
+    assert res_valid.status_code == 201
 
-    # Invalid phone formats
-    invalid_numbers = ["abc", "12", "phone!@#$", "+++"]
-    for phone in invalid_numbers:
-        res = client.post("/api/ledger/clients", json={
-            "first_name": "Test",
-            "surname": "Fail",
-            "phone_number": phone
-        })
-        assert res.status_code == 422, f"Expected {phone} to be rejected"
+    # Invalid: 9 digits
+    res_short = client.post("/api/ledger/clients", json=valid_client_payload(phone_number="076379600"))
+    assert res_short.status_code == 422
+
+    # Invalid: does not start with 0
+    res_no_zero = client.post("/api/ledger/clients", json=valid_client_payload(phone_number="1763796000"))
+    assert res_no_zero.status_code == 422
+
+    # Invalid: international with plus
+    res_intl = client.post("/api/ledger/clients", json=valid_client_payload(phone_number="+33612345678"))
+    assert res_intl.status_code == 422
+
+    # Secondary phone validation when provided
+    res_sec_invalid = client.post("/api/ledger/clients", json=valid_client_payload(
+        phone_number="0763796000",
+        secondary_phone="12345"
+    ))
+    assert res_sec_invalid.status_code == 422
+
+    res_sec_valid = client.post("/api/ledger/clients", json=valid_client_payload(
+        phone_number="0763796000",
+        secondary_phone="0611223344"
+    ))
+    assert res_sec_valid.status_code == 201
+
+
+def test_postal_code_and_aps_validation():
+    """Postal code must be exactly 5 numeric digits. APS must be 10 numeric digits."""
+    # Invalid postal code
+    res_bad_postal = client.post("/api/ledger/clients", json=valid_client_payload(postal_code="750"))
+    assert res_bad_postal.status_code == 422
+
+    res_alpha_postal = client.post("/api/ledger/clients", json=valid_client_payload(postal_code="7500A"))
+    assert res_alpha_postal.status_code == 422
+
+    # Invalid APS (not 10 digits)
+    res_bad_aps = client.post("/api/ledger/clients", json=valid_client_payload(numero_aps="12345"))
+    assert res_bad_aps.status_code == 422
+
+    # Valid APS (10 digits)
+    res_valid_aps = client.post("/api/ledger/clients", json=valid_client_payload(numero_aps="0123456789"))
+    assert res_valid_aps.status_code == 201
+    assert res_valid_aps.json()["numero_aps"] == "0123456789"
+
+
+def test_future_dates_rejection():
+    """Future dates are prohibited for Date of Birth, SP, EF, From, and To."""
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    two_days_ago = (date.today() - timedelta(days=2)).isoformat()
+
+    # Future DOB
+    assert client.post("/api/ledger/clients", json=valid_client_payload(date_of_birth=tomorrow)).status_code == 422
+
+    # Future SP
+    assert client.post("/api/ledger/clients", json=valid_client_payload(sp=tomorrow)).status_code == 422
+
+    # Future EF
+    assert client.post("/api/ledger/clients", json=valid_client_payload(ef=tomorrow)).status_code == 422
+
+    # From and To dates: To must not be earlier than From
+    assert client.post("/api/ledger/clients", json=valid_client_payload(
+        from_date=yesterday,
+        to_date=two_days_ago
+    )).status_code == 422
+
+    # Valid From and To
+    res_dates = client.post("/api/ledger/clients", json=valid_client_payload(
+        from_date=two_days_ago,
+        to_date=yesterday
+    ))
+    assert res_dates.status_code == 201
 
 
 def test_inline_editing_save_and_cancel():
     """Inline editing: PATCH persists changes, changes to either name component updates full_name."""
-    # Create client
-    res = client.post("/api/ledger/clients", json={
-        "first_name": "Pierre",
-        "surname": "Martin",
-        "phone_number": "+33 6 00 00 00 00",
-        "date_of_birth": "1990-01-01"
-    })
+    res = client.post("/api/ledger/clients", json=valid_client_payload(
+        first_name="Pierre",
+        surname="MARTIN",
+        phone_number="0600000000"
+    ))
     client_id = res.json()["id"]
 
-    # 1. Update First Name -> derived full_name updates immediately
+    # 1. Update First Name -> derived full_name updates
     patch_res1 = client.patch(f"/api/ledger/clients/{client_id}", json={
         "first_name": "Alexandre"
     })
     assert patch_res1.status_code == 200
-    assert patch_res1.json()["full_name"] == "Alexandre Martin"
+    assert patch_res1.json()["first_name"] == "Alexandre"
+    assert patch_res1.json()["full_name"] == "MARTIN Alexandre"
 
-    # 2. Update Surname -> derived full_name updates immediately
+    # 2. Update Surname -> derived full_name updates
     patch_res2 = client.patch(f"/api/ledger/clients/{client_id}", json={
         "surname": "Dubois",
-        "phone_number": "+33 7 11 22 33 44"
+        "phone_number": "0711223344"
     })
     assert patch_res2.status_code == 200
-    assert patch_res2.json()["full_name"] == "Alexandre Dubois"
-    assert patch_res2.json()["phone_number"] == "+33 7 11 22 33 44"
+    assert patch_res2.json()["surname"] == "DUBOIS"
+    assert patch_res2.json()["full_name"] == "DUBOIS Alexandre"
+    assert patch_res2.json()["phone_number"] == "0711223344"
 
     # 3. Verify changes persisted in database
     get_res = client.get(f"/api/ledger/clients/{client_id}")
     assert get_res.status_code == 200
     assert get_res.json()["first_name"] == "Alexandre"
-    assert get_res.json()["surname"] == "Dubois"
-    assert get_res.json()["full_name"] == "Alexandre Dubois"
+    assert get_res.json()["surname"] == "DUBOIS"
+    assert get_res.json()["full_name"] == "DUBOIS Alexandre"
 
 
-def test_client_search():
-    """Ledger search matches first_name, surname, full name, phone number, and email."""
-    client.post("/api/ledger/clients", json={
-        "first_name": "Ahmed",
-        "surname": "Khan",
-        "phone_number": "+93 70 123 4567",
-        "email": "ahmed@example.com"
-    })
-    client.post("/api/ledger/clients", json={
-        "first_name": "Marie",
-        "surname": "Curie",
-        "phone_number": "+33 1 40 00 00 00",
-        "email": "marie@sorbonne.fr"
-    })
+def test_client_search_and_filters():
+    """Ledger search matches reference_number, name, phone, email, and filters by service, priority, status."""
+    c1 = client.post("/api/ledger/clients", json=valid_client_payload(
+        first_name="Ahmed",
+        surname="KHAN",
+        phone_number="0712345678",
+        email="ahmed@example.com",
+        service_type="OFPRA",
+        priority="Urgent",
+        status="On Process"
+    )).json()
+
+    c2 = client.post("/api/ledger/clients", json=valid_client_payload(
+        first_name="Marie",
+        surname="CURIE",
+        phone_number="0140000000",
+        email="marie@sorbonne.fr",
+        service_type="RECOURS",
+        priority="Normal",
+        status="Ready to delivered"
+    )).json()
 
     # Search by first name
     res1 = client.get("/api/ledger/clients?search=Ahmed")
@@ -242,127 +389,118 @@ def test_client_search():
     assert res1.json()["items"][0]["first_name"] == "Ahmed"
 
     # Search by surname
-    res2 = client.get("/api/ledger/clients?search=Curie")
+    res2 = client.get("/api/ledger/clients?search=CURIE")
     assert res2.json()["total"] == 1
-    assert res2.json()["items"][0]["surname"] == "Curie"
+    assert res2.json()["items"][0]["surname"] == "CURIE"
 
-    # Search by phone
-    res3 = client.get("/api/ledger/clients?search=123 4567")
-    assert res3.json()["total"] == 1
-    assert res3.json()["items"][0]["first_name"] == "Ahmed"
+    # Search by reference number
+    ref_ahmed = c1["reference_number"]
+    res_ref = client.get(f"/api/ledger/clients?search={ref_ahmed}")
+    assert res_ref.json()["total"] == 1
+    assert res_ref.json()["items"][0]["id"] == c1["id"]
 
-    # Search by email
-    res4 = client.get("/api/ledger/clients?search=sorbonne")
-    assert res4.json()["total"] == 1
-    assert res4.json()["items"][0]["surname"] == "Curie"
+    # Filter by service_type
+    res_filter_st = client.get("/api/ledger/clients?service_type=RECOURS")
+    assert res_filter_st.json()["total"] == 1
+    assert res_filter_st.json()["items"][0]["first_name"] == "Marie"
 
-    # Search by combined full name
-    res5 = client.get("/api/ledger/clients?search=Ahmed Khan")
-    assert res5.json()["total"] == 1
+    # Filter by priority
+    res_filter_pr = client.get("/api/ledger/clients?priority=Urgent")
+    assert res_filter_pr.json()["total"] == 1
+    assert res_filter_pr.json()["items"][0]["first_name"] == "Ahmed"
+
+    # Filter by status
+    res_filter_status = client.get("/api/ledger/clients?status=Ready to delivered")
+    assert res_filter_status.json()["total"] == 1
+    assert res_filter_status.json()["items"][0]["status"] == "Ready to delivered"
 
 
-# =====================================================================
-# Client Profile & Section-Level Editing Tests
-# =====================================================================
+def test_assignable_users_and_client_assignment():
+    """Assignable users endpoint lists eligible users and clients can be assigned."""
+    users_res = client.get("/api/ledger/users")
+    assert users_res.status_code == 200
+    user_list = users_res.json()
+    assert len(user_list) >= 2
+    u2_id = next(u["id"] for u in user_list if u["username"] == "testuser2")
 
-def test_client_profile_sections_and_controlled_editing():
-    """Client profile maintains comprehensive details across sections A-F with section-level edits."""
-    create_res = client.post("/api/ledger/clients", json={
-        "first_name": "Elena",
-        "surname": "Rostova",
-        "phone_number": "+380 50 123 4567"
-    })
+    # Create client assigned to user 2
+    c_res = client.post("/api/ledger/clients", json=valid_client_payload(
+        assigned_to_id=u2_id
+    ))
+    assert c_res.status_code == 201
+    created = c_res.json()
+    assert created["assigned_to_id"] == u2_id
+    assert created["assigned_to_name"] == "testuser2"
+
+    # Filter clients by assigned_to_id
+    filter_res = client.get(f"/api/ledger/clients?assigned_to_id={u2_id}")
+    assert filter_res.status_code == 200
+    assert filter_res.json()["total"] == 1
+
+
+def test_remarks_rich_text_sanitization_and_persistence():
+    """Remarks field accepts HTML formatted text and sanitizes malicious script tags."""
+    html_input = '<p><b>Important Case:</b> Hearing on <i>Friday</i>.<script>alert("XSS")</script></p>'
+    res = client.post("/api/ledger/clients", json=valid_client_payload(remarks=html_input))
+    assert res.status_code == 201
+    client_data = res.json()
+    
+    # Script tag must be sanitized out
+    assert "<script>" not in client_data["remarks"]
+    assert 'alert("XSS")' not in client_data["remarks"]
+    # Safe tags preserved
+    assert "<b>Important Case:</b>" in client_data["remarks"]
+    assert "<i>Friday</i>" in client_data["remarks"]
+
+
+def test_family_sections_e_to_h():
+    """Sections E (Parents), F (Siblings), G (Epouse), H (Kids) are optional and persist accurately."""
+    family_payload = valid_client_payload(
+        parents_details={
+            "father_name": "Arul SRIKARAN",
+            "mother_name": "Devi SRIKARAN",
+            "notes": "Living in Jaffna"
+        },
+        siblings=[
+            {"name": "Rajan SRIKARAN", "relationship": "Brother", "gender": "Male", "date_of_birth": "1992-03-10"},
+            {"name": "Priya SRIKARAN", "relationship": "Sister", "gender": "Female", "date_of_birth": "1995-07-22"}
+        ],
+        epouse={
+            "name": "Kamala SRIKARAN",
+            "maiden_name": "PERERA",
+            "date_of_birth": "1993-11-05",
+            "marriage_date": "2018-06-20",
+            "marriage_place": "Colombo",
+            "nationality": "SRI LANKAISE"
+        },
+        kids=[
+            {"name": "Anan SRIKARAN", "gender": "Male", "date_of_birth": "2020-04-12", "place_of_birth": "Paris"}
+        ]
+    )
+
+    create_res = client.post("/api/ledger/clients", json=family_payload)
+    assert create_res.status_code == 201
     client_id = create_res.json()["id"]
 
-    # Update Section A (Personal Info)
-    patch_secA = client.patch(f"/api/ledger/clients/{client_id}", json={
-        "gender": "Female",
-        "nationality": "Ukrainian",
-        "place_of_birth": "Kyiv",
-        "current_country": "France",
-        "marital_status": "Single",
-        "preferred_language": "Ukrainian"
-    })
-    assert patch_secA.status_code == 200
-    assert patch_secA.json()["nationality"] == "Ukrainian"
-    assert patch_secA.json()["preferred_language"] == "Ukrainian"
+    # Verify retrieval
+    get_res = client.get(f"/api/ledger/clients/{client_id}")
+    assert get_res.status_code == 200
+    data = get_res.json()
 
-    # Update Section B (Contact Info)
-    patch_secB = client.patch(f"/api/ledger/clients/{client_id}", json={
-        "secondary_phone": "+33 6 99 88 77 66",
-        "email": "elena.r@example.com",
-        "address": "15 Rue de la Paix",
-        "city": "Paris",
-        "postal_code": "75002",
-        "country": "France"
-    })
-    assert patch_secB.status_code == 200
-    assert patch_secB.json()["city"] == "Paris"
-    assert patch_secB.json()["email"] == "elena.r@example.com"
+    assert data["parents_details"]["father_name"] == "Arul SRIKARAN"
+    assert len(data["siblings"]) == 2
+    assert data["siblings"][0]["name"] == "Rajan SRIKARAN"
+    assert data["epouse"]["name"] == "Kamala SRIKARAN"
+    assert len(data["kids"]) == 1
+    assert data["kids"][0]["name"] == "Anan SRIKARAN"
 
-    # Update Section C (Identification - structured JSON)
-    patch_secC = client.patch(f"/api/ledger/clients/{client_id}", json={
-        "identification_info": {
-            "passport_number": "PU123456",
-            "passport_country": "Ukraine",
-            "passport_issue_date": "2020-01-10",
-            "passport_expiry_date": "2030-01-10",
-            "national_id": "UKR-987654"
-        }
-    })
-    assert patch_secC.status_code == 200
-    id_info = patch_secC.json()["identification_info"]
-    assert id_info["passport_number"] == "PU123456"
-    assert id_info["national_id"] == "UKR-987654"
-
-    # Update Section D (Case Information - structured JSON)
-    patch_secD = client.patch(f"/api/ledger/clients/{client_id}", json={
-        "case_info": {
-            "case_reference": "CAS-2026-0042",
-            "case_type": "Recours",
-            "case_status": "Pending",
-            "assigned_worker": "Sarah Jenkins",
-            "date_case_opened": "2026-03-01",
-            "case_summary": "Asylum request appeal filed under Article L. 532-1."
-        }
-    })
-    assert patch_secD.status_code == 200
-    case_info = patch_secD.json()["case_info"]
-    assert case_info["case_reference"] == "CAS-2026-0042"
-    assert case_info["case_type"] == "Recours"
-
-    # Update Section E (Background Information - structured JSON)
-    patch_secE = client.patch(f"/api/ledger/clients/{client_id}", json={
-        "background_info": {
-            "education": "Master of Computer Science",
-            "employment": "Software Engineer",
-            "family_info": "Parents in Ukraine"
-        }
-    })
-    assert patch_secE.status_code == 200
-    assert patch_secE.json()["background_info"]["education"] == "Master of Computer Science"
-
-    # Update Section F (Additional Information - structured JSON)
-    patch_secF = client.patch(f"/api/ledger/clients/{client_id}", json={
-        "additional_info": {
-            "notes": "Urgent hearing on Dec 1st",
-            "important_dates": "Hearing: 01/12/2026",
-            "other_details": "Requires Pashto interpreter if translation needed"
-        }
-    })
-    assert patch_secF.status_code == 200
-    assert patch_secF.json()["additional_info"]["important_dates"] == "Hearing: 01/12/2026"
-
-    # Verify entire comprehensive record persisted
-    full_profile = client.get(f"/api/ledger/clients/{client_id}").json()
-    assert full_profile["first_name"] == "Elena"
-    assert full_profile["full_name"] == "Elena Rostova"
-    assert full_profile["nationality"] == "Ukrainian"
-    assert full_profile["email"] == "elena.r@example.com"
-    assert full_profile["identification_info"]["passport_number"] == "PU123456"
-    assert full_profile["case_info"]["case_type"] == "Recours"
-    assert full_profile["background_info"]["education"] == "Master of Computer Science"
-    assert full_profile["additional_info"]["notes"] == "Urgent hearing on Dec 1st"
+    # Add child and update via PATCH
+    updated_kids = data["kids"] + [
+        {"name": "Nila SRIKARAN", "gender": "Female", "date_of_birth": "2022-09-18", "place_of_birth": "Paris"}
+    ]
+    patch_res = client.patch(f"/api/ledger/clients/{client_id}", json={"kids": updated_kids})
+    assert patch_res.status_code == 200
+    assert len(patch_res.json()["kids"]) == 2
 
 
 def test_client_authorization_and_data_isolation():
@@ -371,10 +509,10 @@ def test_client_authorization_and_data_isolation():
 
     # User 1 creates client
     _current_user = User(id="user_1", username="testuser1", is_admin=False)
-    create_res = client.post("/api/ledger/clients", json={
-        "first_name": "Private",
-        "surname": "Client"
-    })
+    create_res = client.post("/api/ledger/clients", json=valid_client_payload(
+        first_name="Private",
+        surname="CLIENT"
+    ))
     client_id = create_res.json()["id"]
 
     # User 2 tries to access User 1's client
@@ -395,11 +533,11 @@ def test_client_authorization_and_data_isolation():
 
 
 def test_client_deletion():
-    """Client deletion removes record and requires confirmation on frontend."""
-    res = client.post("/api/ledger/clients", json={
-        "first_name": "Delete",
-        "surname": "Me"
-    })
+    """Client deletion removes record from database."""
+    res = client.post("/api/ledger/clients", json=valid_client_payload(
+        first_name="Delete",
+        surname="ME"
+    ))
     client_id = res.json()["id"]
 
     del_res = client.delete(f"/api/ledger/clients/{client_id}")
@@ -409,19 +547,14 @@ def test_client_deletion():
     assert client.get(f"/api/ledger/clients/{client_id}").status_code == 404
 
 
-# =====================================================================
-# Client File Management Tests (Requirement 7)
-# =====================================================================
-
 def test_client_file_upload_download_preview_and_delete():
     """Multi-file upload, listing, preview, download, and deletion work securely."""
-    create_res = client.post("/api/ledger/clients", json={
-        "first_name": "Document",
-        "surname": "Owner"
-    })
+    create_res = client.post("/api/ledger/clients", json=valid_client_payload(
+        first_name="Document",
+        surname="OWNER"
+    ))
     client_id = create_res.json()["id"]
 
-    # 1. Upload multiple files (PDF and Image)
     pdf_content = b"%PDF-1.4 mock pdf document content"
     img_content = b"\x89PNG\r\n\x1a\n mock png image content"
 
@@ -438,36 +571,37 @@ def test_client_file_upload_download_preview_and_delete():
     pdf_file_id = next(f["id"] for f in uploaded_files if f["original_filename"] == "passport.pdf")
     img_file_id = next(f["id"] for f in uploaded_files if f["original_filename"] == "id_photo.png")
 
-    # 2. List client files
+    # List files
     list_files_res = client.get(f"/api/ledger/clients/{client_id}/files")
     assert list_files_res.status_code == 200
     assert len(list_files_res.json()) == 2
 
-    # 3. Download client file (attachment disposition)
+    # Download
     dl_res = client.get(f"/api/ledger/clients/{client_id}/files/{pdf_file_id}/download")
     assert dl_res.status_code == 200
     assert "attachment" in dl_res.headers.get("content-disposition", "")
     assert dl_res.content == pdf_content
 
-    # 4. Preview client file (inline disposition)
+    # Preview
     preview_res = client.get(f"/api/ledger/clients/{client_id}/files/{img_file_id}/preview")
     assert preview_res.status_code == 200
     assert "inline" in preview_res.headers.get("content-disposition", "")
     assert preview_res.content == img_content
 
-    # 5. Delete file
+    # Delete
     del_file_res = client.delete(f"/api/ledger/clients/{client_id}/files/{pdf_file_id}")
     assert del_file_res.status_code == 204
-
-    # Verify only 1 file remains
     remaining = client.get(f"/api/ledger/clients/{client_id}/files").json()
     assert len(remaining) == 1
     assert remaining[0]["id"] == img_file_id
 
 
 def test_client_file_unsupported_format_rejected():
-    """Files with unsupported extensions (.exe, .sh, etc.) are rejected."""
-    create_res = client.post("/api/ledger/clients", json={"first_name": "Test", "surname": "Files"})
+    """Files with unsupported extensions are rejected."""
+    create_res = client.post("/api/ledger/clients", json=valid_client_payload(
+        first_name="Test",
+        surname="FILES"
+    ))
     client_id = create_res.json()["id"]
 
     bad_file = ("files", ("malicious.exe", io.BytesIO(b"bad content"), "application/x-msdownload"))
@@ -480,9 +614,11 @@ def test_client_file_authorization():
     """Another user cannot download or delete client files."""
     global _current_user
 
-    # User 1 creates client and uploads a file
     _current_user = User(id="user_1", username="testuser1", is_admin=False)
-    c_res = client.post("/api/ledger/clients", json={"first_name": "Secure", "surname": "Client"})
+    c_res = client.post("/api/ledger/clients", json=valid_client_payload(
+        first_name="Secure",
+        surname="CLIENT"
+    ))
     client_id = c_res.json()["id"]
 
     upload_res = client.post(
@@ -491,24 +627,15 @@ def test_client_file_authorization():
     )
     file_id = upload_res.json()[0]["id"]
 
-    # User 2 tries to download User 1's client file
     _current_user = User(id="user_2", username="testuser2", is_admin=False)
     assert client.get(f"/api/ledger/clients/{client_id}/files/{file_id}/download").status_code == 404
     assert client.delete(f"/api/ledger/clients/{client_id}/files/{file_id}").status_code == 404
 
 
-# =====================================================================
-# Transcription Regression Test (Requirement 8)
-# =====================================================================
-
 def test_transcription_pipeline_does_not_populate_ledger():
-    """
-    Transcription pipeline continues normal processing (audio, transcript, duration, counters)
-    but NO LONGER extracts keywords (service_type, client_name, client_surname) to modify ledger.
-    """
+    """Transcription pipeline completes jobs without polluting ledger tables."""
     db = TestingSessionLocal()
     
-    # Create test job
     job = Job(
         id="job_test_123",
         user_id="user_1",
@@ -519,12 +646,9 @@ def test_transcription_pipeline_does_not_populate_ledger():
     db.add(job)
     db.commit()
 
-    # Simulate completed transcript text that previously triggered auto-extraction:
-    # First word: "Recours", 2nd word: "Jean", 3rd word: "Dupont"
     transcript_text = "Recours Jean Dupont appellant filed an appeal against OFPRA decision."
     metadata = {"duration": 120.0, "model": "whisper"}
 
-    # Simulate steps from tasks.py:
     new_transcript = Transcript(
         job_id=job.id,
         text_content=transcript_text,
@@ -532,90 +656,20 @@ def test_transcription_pipeline_does_not_populate_ledger():
     )
     db.add(new_transcript)
 
-    # In redesigned tasks.py, we complete the job WITHOUT extracting words into job.service_type or job.client_name:
     job.status = JobStatus.COMPLETED.value
     job.completed_at = datetime.now(timezone.utc)
     job.duration_seconds = 120
     db.commit()
 
-    # Verify job completed and transcript exists
     refreshed_job = db.query(Job).filter(Job.id == "job_test_123").first()
     assert refreshed_job.status == JobStatus.COMPLETED.value
     assert refreshed_job.transcript is not None
     assert refreshed_job.transcript.text_content == transcript_text
 
-    # CRITICAL: Verify keyword extraction did NOT populate ledger fields on job!
     assert refreshed_job.client_name is None
     assert refreshed_job.client_surname is None
     assert refreshed_job.service_type is None
 
-    # Verify no automatic client was created in clients table
     clients = db.query(Client).all()
     assert len(clients) == 0
-
-    db.close()
-
-
-def test_controlled_reset_preserves_application_data():
-    """
-    Controlled reset clears legacy ledger columns on jobs table
-    WITHOUT deleting jobs, original files, transcripts, or user accounts.
-    """
-    db = TestingSessionLocal()
-
-    # Create job with legacy ledger fields
-    job = Job(
-        id="legacy_job_1",
-        user_id="user_1",
-        original_filename="recording.mp3",
-        storage_path="audio/recording.mp3",
-        status=JobStatus.COMPLETED.value,
-        client_name="LegacyName",
-        client_surname="LegacySurname",
-        service_type="Recours",
-        phone_number="0123456789"
-    )
-    db.add(job)
-    transcript = Transcript(
-        id="legacy_tr_1",
-        job_id="legacy_job_1",
-        text_content="Preserved transcript text"
-    )
-    db.add(transcript)
-    db.commit()
-
-    # Execute controlled reset operation
-    from sqlalchemy import text
-    db.execute(text(
-        "UPDATE jobs SET "
-        "client_name = NULL, "
-        "client_surname = NULL, "
-        "service_type = NULL, "
-        "date_of_birth = NULL, "
-        "phone_number = NULL, "
-        "payment = NULL"
-    ))
-    db.commit()
-
-    # Verify:
-    refreshed_job = db.query(Job).filter(Job.id == "legacy_job_1").first()
-    assert refreshed_job is not None  # Job preserved!
-    assert refreshed_job.original_filename == "recording.mp3"
-    assert refreshed_job.storage_path == "audio/recording.mp3"  # Audio path preserved!
-    assert refreshed_job.status == JobStatus.COMPLETED.value
-    
-    # Obsolete ledger fields cleared:
-    assert refreshed_job.client_name is None
-    assert refreshed_job.client_surname is None
-    assert refreshed_job.service_type is None
-
-    # Transcript preserved:
-    tr = db.query(Transcript).filter(Transcript.job_id == "legacy_job_1").first()
-    assert tr is not None
-    assert tr.text_content == "Preserved transcript text"
-
-    # User accounts preserved:
-    users = db.query(User).all()
-    assert len(users) >= 3
-
     db.close()

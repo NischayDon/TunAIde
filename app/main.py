@@ -55,6 +55,41 @@ async def lifespan(app: FastAPI):
                     print("Auto-migrating: Adding description column to supporting_documents table...")
                     conn.execute(text("ALTER TABLE supporting_documents ADD COLUMN description TEXT"))
                     conn.commit()
+
+                try:
+                    conn.execute(text("SELECT reference_number FROM clients LIMIT 1"))
+                except Exception:
+                    conn.rollback()
+                    print("Auto-migrating: Adding enhanced ledger workflow columns to clients table...")
+                    cols = [
+                        ("reference_number", "VARCHAR"),
+                        ("client_date", "VARCHAR"),
+                        ("service_type", "VARCHAR"),
+                        ("priority", "VARCHAR DEFAULT 'Normal'"),
+                        ("status", "VARCHAR DEFAULT 'Inwarded'"),
+                        ("assigned_to_id", "VARCHAR"),
+                        ("birth_place", "VARCHAR"),
+                        ("personal_country", "VARCHAR"),
+                        ("sp", "VARCHAR"),
+                        ("ef", "VARCHAR"),
+                        ("numero_ofpra", "VARCHAR"),
+                        ("numero_aps", "VARCHAR"),
+                        ("from_date", "VARCHAR"),
+                        ("to_date", "VARCHAR"),
+                        ("delivered_by", "VARCHAR"),
+                        ("ville", "VARCHAR"),
+                        ("remarks", "TEXT"),
+                        ("parents_details", "JSON"),
+                        ("siblings", "JSON"),
+                        ("epouse", "JSON"),
+                        ("kids", "JSON"),
+                    ]
+                    for col_name, col_type in cols:
+                        try:
+                            conn.execute(text(f"ALTER TABLE clients ADD COLUMN {col_name} {col_type}"))
+                            conn.commit()
+                        except Exception:
+                            conn.rollback()
             
             # Simple query to verify
             with engine.connect() as conn:

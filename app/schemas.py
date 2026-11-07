@@ -96,6 +96,17 @@ class AudioQueueListResponse(BaseModel):
 
 # --- Client / Ledger Schemas ---
 
+SERVICE_TYPES = ["CONSEIL", "OFPRA", "RECOURS", "TA", "REEXAIN", "RERECOURS"]
+PRIORITIES = ["Normal", "Urgent", "Very Urgent", "Critical", "Rework"]
+STATUSES = ["Inwarded", "On Process", "Ready to delivered", "Delivered", "Closed"]
+
+class UserAssigneeResponse(BaseModel):
+    id: str
+    username: str
+    email: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class ClientFileResponse(BaseModel):
     id: str
     client_id: str
@@ -108,54 +119,114 @@ class ClientFileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class ClientCreate(BaseModel):
+    # Header / Workflow
+    client_date: Optional[str] = None
+    service_type: Optional[str] = None
+    priority: Optional[str] = "Normal"
+    status: Optional[str] = "Inwarded"
+    assigned_to_id: Optional[str] = None
+
+    # Section A: Personal Information
     first_name: str
     surname: str
-    phone_number: Optional[str] = None
     date_of_birth: Optional[str] = None
-    # Section A
-    gender: Optional[str] = None
-    nationality: Optional[str] = None
     place_of_birth: Optional[str] = None
-    current_country: Optional[str] = None
+    birth_place: Optional[str] = None
+    gender: Optional[str] = None
+    nationality: Optional[str] = "SRI LANKAISE"
     marital_status: Optional[str] = None
+    personal_country: Optional[str] = None
+    sp: Optional[str] = None
+    ef: Optional[str] = None
+    current_country: Optional[str] = None
     preferred_language: Optional[str] = None
-    # Section B
+
+    # Section B: Identification / OFPRA Information
+    numero_ofpra: Optional[str] = None
+    numero_aps: Optional[str] = None
+    from_date: Optional[str] = None
+    to_date: Optional[str] = None
+    delivered_by: Optional[str] = None
+
+    # Section C: Contact Information
+    phone_number: Optional[str] = None  # Primary Phone
     secondary_phone: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
     previous_address: Optional[str] = None
+    ville: Optional[str] = None
+    postal_code: Optional[str] = None
     country: Optional[str] = None
     state_province: Optional[str] = None
     city: Optional[str] = None
-    postal_code: Optional[str] = None
-    # Sections C-F
+
+    # Section D: Remarks
+    remarks: Optional[str] = None
+
+    # Sections E-H: Family Information
+    parents_details: Optional[Any] = None
+    siblings: Optional[Any] = None
+    epouse: Optional[Any] = None
+    kids: Optional[Any] = None
+
+    # Legacy extensible JSON fields
     identification_info: Optional[dict] = None
     case_info: Optional[dict] = None
     background_info: Optional[dict] = None
     additional_info: Optional[dict] = None
 
 class ClientUpdate(BaseModel):
+    # Header / Workflow
+    client_date: Optional[str] = None
+    service_type: Optional[str] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    assigned_to_id: Optional[str] = None
+
+    # Section A
     first_name: Optional[str] = None
     surname: Optional[str] = None
-    phone_number: Optional[str] = None
     date_of_birth: Optional[str] = None
-    # Section A
+    place_of_birth: Optional[str] = None
+    birth_place: Optional[str] = None
     gender: Optional[str] = None
     nationality: Optional[str] = None
-    place_of_birth: Optional[str] = None
-    current_country: Optional[str] = None
     marital_status: Optional[str] = None
+    personal_country: Optional[str] = None
+    sp: Optional[str] = None
+    ef: Optional[str] = None
+    current_country: Optional[str] = None
     preferred_language: Optional[str] = None
+
     # Section B
+    numero_ofpra: Optional[str] = None
+    numero_aps: Optional[str] = None
+    from_date: Optional[str] = None
+    to_date: Optional[str] = None
+    delivered_by: Optional[str] = None
+
+    # Section C
+    phone_number: Optional[str] = None
     secondary_phone: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
     previous_address: Optional[str] = None
+    ville: Optional[str] = None
+    postal_code: Optional[str] = None
     country: Optional[str] = None
     state_province: Optional[str] = None
     city: Optional[str] = None
-    postal_code: Optional[str] = None
-    # Sections C-F
+
+    # Section D
+    remarks: Optional[str] = None
+
+    # Sections E-H
+    parents_details: Optional[Any] = None
+    siblings: Optional[Any] = None
+    epouse: Optional[Any] = None
+    kids: Optional[Any] = None
+
+    # Legacy fields
     identification_info: Optional[dict] = None
     case_info: Optional[dict] = None
     background_info: Optional[dict] = None
@@ -164,29 +235,57 @@ class ClientUpdate(BaseModel):
 class ClientResponse(BaseModel):
     id: str
     created_by_id: str
+    reference_number: Optional[str] = None
+    client_date: Optional[str] = None
+    service_type: Optional[str] = None
+    priority: Optional[str] = "Normal"
+    status: Optional[str] = "Inwarded"
+    assigned_to_id: Optional[str] = None
+    assigned_to_name: Optional[str] = None
+
     first_name: str
     surname: str
     full_name: str
     phone_number: Optional[str] = None
     date_of_birth: Optional[str] = None
+    place_of_birth: Optional[str] = None
+    birth_place: Optional[str] = None
     gender: Optional[str] = None
     nationality: Optional[str] = None
-    place_of_birth: Optional[str] = None
-    current_country: Optional[str] = None
     marital_status: Optional[str] = None
+    personal_country: Optional[str] = None
+    sp: Optional[str] = None
+    ef: Optional[str] = None
+    current_country: Optional[str] = None
     preferred_language: Optional[str] = None
+
+    numero_ofpra: Optional[str] = None
+    numero_aps: Optional[str] = None
+    from_date: Optional[str] = None
+    to_date: Optional[str] = None
+    delivered_by: Optional[str] = None
+
     secondary_phone: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
     previous_address: Optional[str] = None
+    ville: Optional[str] = None
+    postal_code: Optional[str] = None
     country: Optional[str] = None
     state_province: Optional[str] = None
     city: Optional[str] = None
-    postal_code: Optional[str] = None
+
+    remarks: Optional[str] = None
+    parents_details: Optional[Any] = None
+    siblings: Optional[Any] = None
+    epouse: Optional[Any] = None
+    kids: Optional[Any] = None
+
     identification_info: Optional[dict] = None
     case_info: Optional[dict] = None
     background_info: Optional[dict] = None
     additional_info: Optional[dict] = None
+
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     files: List[ClientFileResponse] = []

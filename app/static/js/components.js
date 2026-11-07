@@ -853,17 +853,118 @@ const Components = {
     },
 
     // =====================================================
-    // Redesigned Ledger Components
+    // TunAIde Enhanced Ledger & Client Details Components
     // =====================================================
+
+    RichTextEditor: (id, initialContent = '', placeholder = 'Enter remarks here...') => {
+        return `
+        <div class="rich-text-editor border border-slate-300 rounded-lg overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 shadow-xs">
+            <div class="rich-text-toolbar bg-slate-100/90 border-b border-slate-200 px-2 py-1.5 flex flex-wrap items-center gap-1 text-slate-700">
+                <button type="button" onmousedown="event.preventDefault(); App.execRichCommand('${id}', 'bold')" title="Bold" class="px-2 py-1 text-xs font-bold hover:bg-slate-200 hover:text-slate-900 rounded transition">B</button>
+                <button type="button" onmousedown="event.preventDefault(); App.execRichCommand('${id}', 'italic')" title="Italic" class="px-2 py-1 text-xs font-serif italic hover:bg-slate-200 hover:text-slate-900 rounded transition">I</button>
+                <button type="button" onmousedown="event.preventDefault(); App.execRichCommand('${id}', 'underline')" title="Underline" class="px-2 py-1 text-xs underline hover:bg-slate-200 hover:text-slate-900 rounded transition">U</button>
+                <span class="w-px h-4 bg-slate-300 mx-1"></span>
+                <button type="button" onmousedown="event.preventDefault(); App.execRichCommand('${id}', 'insertUnorderedList')" title="Bullet List" class="px-2 py-1 text-xs hover:bg-slate-200 hover:text-slate-900 rounded transition flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+                <button type="button" onmousedown="event.preventDefault(); App.execRichCommand('${id}', 'insertOrderedList')" title="Numbered List" class="px-2 py-1 text-xs hover:bg-slate-200 hover:text-slate-900 rounded transition flex items-center gap-1">
+                    <span class="font-mono text-[11px] font-bold">1.</span>
+                </button>
+                <span class="w-px h-4 bg-slate-300 mx-1"></span>
+                <button type="button" onmousedown="event.preventDefault(); App.execRichCommand('${id}', 'formatBlock', '<p>')" title="Paragraph" class="px-2 py-1 text-xs hover:bg-slate-200 hover:text-slate-900 rounded transition">P</button>
+                <button type="button" onmousedown="event.preventDefault(); App.execRichCommand('${id}', 'formatBlock', '<h3>')" title="Heading" class="px-2 py-1 text-xs font-semibold hover:bg-slate-200 hover:text-slate-900 rounded transition">H3</button>
+                <button type="button" onmousedown="event.preventDefault(); App.execRichCommand('${id}', 'removeFormat')" title="Clear Formatting" class="px-2 py-1 text-xs text-slate-500 hover:bg-slate-200 hover:text-slate-800 rounded transition">Clear</button>
+            </div>
+            <div 
+                id="${id}" 
+                contenteditable="true" 
+                class="rich-text-content prose prose-sm max-w-none p-3.5 min-h-[140px] text-slate-800 focus:outline-none"
+                data-placeholder="${App.escapeHtml(placeholder)}"
+            >${initialContent || ''}</div>
+        </div>
+        `;
+    },
+
+    getPriorityBadge: (priority) => {
+        const p = (priority || 'Normal').trim();
+        if (p === 'Urgent') {
+            return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300" title="Urgent Priority">
+                <svg class="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                Urgent
+            </span>`;
+        }
+        if (p === 'Very Urgent') {
+            return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300" title="Very Urgent Priority">
+                <svg class="w-3.5 h-3.5 text-orange-600" fill="currentColor" viewBox="0 0 24 24"><path d="M17.66 11.2C17.43 10.9 17.15 10.64 16.89 10.38C16.22 9.78 15.46 9.35 14.82 8.72C13.33 7.26 13 4.85 13.95 3C13 3.23 12.17 3.75 11.46 4.32C8.87 6.4 7.85 10.07 9.07 13.22C9.11 13.32 9.15 13.42 9.15 13.55C9.15 13.77 9 13.97 8.8 14.05C8.57 14.15 8.33 14.09 8.14 13.93C8.08 13.88 8.04 13.83 8 13.76C6.87 12.33 6.69 10.28 7.45 8.64C5.78 10 4.87 12.3 5.03 14.47C5.2 16.74 6.67 18.77 8.67 19.66C11.55 20.95 15.03 20.07 16.96 17.61C18.61 15.5 18.88 12.43 17.66 11.2Z"/></svg>
+                Very Urgent
+            </span>`;
+        }
+        if (p === 'Critical') {
+            return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 ring-2 ring-red-400/30" title="Critical Priority">
+                <svg class="w-3.5 h-3.5 text-red-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Critical
+            </span>`;
+        }
+        if (p === 'Rework') {
+            return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-300" title="Rework Priority">
+                <svg class="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Rework
+            </span>`;
+        }
+        // Normal priority: standard appearance, no warning indicator
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">Normal</span>`;
+    },
+
+    getStatusBadge: (status) => {
+        const s = (status || 'Inwarded').trim();
+        if (s === 'Ready to delivered') {
+            return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300/60" title="Ready to delivered">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                Ready to delivered
+            </span>`;
+        }
+        if (s === 'On Process') {
+            return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">On Process</span>`;
+        }
+        if (s === 'Delivered') {
+            return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-800">Delivered</span>`;
+        }
+        if (s === 'Closed') {
+            return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">Closed</span>`;
+        }
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-800">Inwarded</span>`;
+    },
+
+    getRefBadge: (ref) => {
+        if (!ref) return '<span class="text-slate-400">—</span>';
+        return `<span class="font-mono font-bold text-xs px-2.5 py-1 rounded bg-blue-50 text-blue-800 border border-blue-200 shadow-2xs">${App.escapeHtml(ref)}</span>`;
+    },
+
+    getServiceTypeBadge: (st) => {
+        if (!st) return '<span class="text-slate-400">—</span>';
+        return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">${App.escapeHtml(st)}</span>`;
+    },
 
     LedgerView: (clients = [], totalCount = 0, searchQuery = '', loading = false) => {
         const countText = totalCount === 1 ? '1 client' : `${totalCount} clients`;
+        const serviceTypes = ["CONSEIL", "OFPRA", "RECOURS", "TA", "REEXAIN", "RERECOURS"];
+        const priorities = ["Normal", "Urgent", "Very Urgent", "Critical", "Rework"];
+        const statuses = ["Inwarded", "On Process", "Ready to delivered", "Delivered", "Closed"];
+        const users = App.state.assignableUsers || [];
+
+        const hasActiveFilters = !!(
+            App.state.ledgerSearchQuery ||
+            App.state.ledgerServiceTypeFilter ||
+            App.state.ledgerPriorityFilter ||
+            App.state.ledgerStatusFilter ||
+            App.state.ledgerAssigneeFilter
+        );
         
         return `
         <div class="pl-64 min-h-screen bg-slate-50">
-            <div class="max-w-6xl mx-auto p-8">
-                <!-- Header with Title, Count, Search, and New Entry Button -->
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div class="max-w-7xl mx-auto p-8">
+                <!-- Header with Title, Count, and New Entry Button -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div>
                         <div class="flex items-center gap-3">
                             <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Ledger</h2>
@@ -871,35 +972,14 @@ const Components = {
                                 ${countText}
                             </span>
                         </div>
-                        <p class="text-sm text-slate-500 mt-1">Manage client records, profiles, and associated documents</p>
+                        <p class="text-sm text-slate-500 mt-1">Manage client records, workflow status, and associated files</p>
                     </div>
 
                     <div class="flex items-center gap-3">
-                        <!-- Search Box -->
-                        <div class="relative w-72">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            </div>
-                            <input 
-                                type="text" 
-                                id="ledgerSearchInput"
-                                value="${searchQuery ? App.escapeHtml(searchQuery) : ''}"
-                                placeholder="Search name, phone, email..."
-                                oninput="App.onLedgerSearch(this.value)"
-                                class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition"
-                            >
-                            ${searchQuery ? `
-                                <button onclick="App.clearLedgerSearch()" class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                </button>
-                            ` : ''}
-                        </div>
-
-                        <!-- New Entry Button -->
                         <button 
                             id="newEntryBtn" 
                             onclick="App.openNewClientModal()" 
-                            class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 hover:shadow-md transition shadow-sm whitespace-nowrap"
+                            class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 hover:shadow-md transition shadow-sm whitespace-nowrap"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                             + New Entry
@@ -907,26 +987,106 @@ const Components = {
                     </div>
                 </div>
 
+                <!-- Filter & Search Toolbar Card -->
+                <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+                        <!-- Search Box -->
+                        <div class="relative w-64">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="ledgerSearchInput"
+                                value="${App.escapeHtml(App.state.ledgerSearchQuery || '')}"
+                                placeholder="Search Ref #, name, phone..."
+                                oninput="App.onLedgerSearch(this.value)"
+                                class="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                            >
+                            ${App.state.ledgerSearchQuery ? `
+                                <button onclick="App.clearLedgerSearch()" class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            ` : ''}
+                        </div>
+
+                        <!-- Service Type Filter -->
+                        <select 
+                            id="ledgerFilterServiceType" 
+                            onchange="App.onLedgerFilterChange('service_type', this.value)"
+                            class="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+                        >
+                            <option value="">All Service Types</option>
+                            ${serviceTypes.map(st => `<option value="${st}" ${App.state.ledgerServiceTypeFilter === st ? 'selected' : ''}>${st}</option>`).join('')}
+                        </select>
+
+                        <!-- Priority Filter -->
+                        <select 
+                            id="ledgerFilterPriority" 
+                            onchange="App.onLedgerFilterChange('priority', this.value)"
+                            class="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+                        >
+                            <option value="">All Priorities</option>
+                            ${priorities.map(p => `<option value="${p}" ${App.state.ledgerPriorityFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
+                        </select>
+
+                        <!-- Status Filter -->
+                        <select 
+                            id="ledgerFilterStatus" 
+                            onchange="App.onLedgerFilterChange('status', this.value)"
+                            class="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+                        >
+                            <option value="">All Statuses</option>
+                            ${statuses.map(s => `<option value="${s}" ${App.state.ledgerStatusFilter === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        </select>
+
+                        <!-- Assigned To Filter -->
+                        <select 
+                            id="ledgerFilterAssignee" 
+                            onchange="App.onLedgerFilterChange('assigned_to_id', this.value)"
+                            class="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+                        >
+                            <option value="">All Assignees</option>
+                            ${users.map(u => `<option value="${u.id}" ${App.state.ledgerAssigneeFilter === u.id ? 'selected' : ''}>${App.escapeHtml(u.username)}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    ${hasActiveFilters ? `
+                        <button 
+                            onclick="App.clearAllLedgerFilters()" 
+                            class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition flex items-center gap-1"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            Reset Filters
+                        </button>
+                    ` : ''}
+                </div>
+
                 <!-- Ledger Table Card -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left">
-                            <thead class="bg-slate-50 text-xs uppercase text-slate-500 font-semibold border-b border-slate-200">
+                            <thead class="bg-slate-50 text-[11px] uppercase text-slate-500 font-bold border-b border-slate-200">
                                 <tr>
-                                    <th class="px-6 py-4 rounded-tl-xl w-2/5">Name</th>
-                                    <th class="px-6 py-4 w-1/4">Phone Number</th>
-                                    <th class="px-6 py-4 w-1/4">Date of Birth</th>
-                                    <th class="px-6 py-4 rounded-tr-xl text-right w-24">Actions</th>
+                                    <th class="px-5 py-3.5 rounded-tl-xl w-32">Ref #</th>
+                                    <th class="px-5 py-3.5">Client Name</th>
+                                    <th class="px-5 py-3.5">Primary Phone</th>
+                                    <th class="px-5 py-3.5">Service Type</th>
+                                    <th class="px-5 py-3.5">Priority</th>
+                                    <th class="px-5 py-3.5">Status</th>
+                                    <th class="px-5 py-3.5">Assigned To</th>
+                                    <th class="px-5 py-3.5">Date</th>
+                                    <th class="px-5 py-3.5 rounded-tr-xl text-right w-20">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="ledgerTableBody" class="divide-y divide-slate-100 text-sm">
                                 ${loading ? `
                                     <tr>
-                                        <td colspan="4" class="py-16 text-center">
+                                        <td colspan="9" class="py-16 text-center">
                                             ${ThinkingLoader.section('weaving', 'Loading client records…')}
                                         </td>
                                     </tr>
-                                ` : (clients.length === 0 ? Components.LedgerEmptyState(!!searchQuery) : clients.map(client => Components.LedgerRow(client, App.state.editingClientId === client.id)).join(''))}
+                                ` : (clients.length === 0 ? Components.LedgerEmptyState(hasActiveFilters) : clients.map(client => Components.LedgerRow(client, App.state.editingClientId === client.id)).join(''))}
                             </tbody>
                         </table>
                     </div>
@@ -938,20 +1098,22 @@ const Components = {
         <div id="newClientModalContainer"></div>
         <!-- Global Confirm Modal Container -->
         <div id="ledgerConfirmModalContainer"></div>
+        <!-- Family Dynamic Item Modal Container -->
+        <div id="familyModalContainer"></div>
         `;
     },
 
     LedgerEmptyState: (hasSearch = false) => `
         <tr>
-            <td colspan="4" class="py-16 text-center">
+            <td colspan="9" class="py-16 text-center">
                 <div class="max-w-sm mx-auto flex flex-col items-center">
                     <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                     </div>
                     <h3 class="text-base font-semibold text-slate-900">${hasSearch ? 'No matching clients found' : 'No client entries yet'}</h3>
-                    <p class="text-xs text-slate-500 mt-1 mb-4">${hasSearch ? 'Try adjusting your search criteria or clear the search query.' : 'Get started by creating your first client record in the ledger.'}</p>
+                    <p class="text-xs text-slate-500 mt-1 mb-4">${hasSearch ? 'Try adjusting your search criteria or clear the filters.' : 'Get started by creating your first client record in the ledger.'}</p>
                     ${hasSearch ? `
-                        <button onclick="App.clearLedgerSearch()" class="px-3.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition">Clear Search</button>
+                        <button onclick="App.clearAllLedgerFilters()" class="px-3.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition">Clear All Filters</button>
                     ` : `
                         <button onclick="App.openNewClientModal()" class="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition">+ New Entry</button>
                     `}
@@ -961,63 +1123,109 @@ const Components = {
     `,
 
     LedgerRow: (client, isEditing = false) => {
-        const fullName = client.full_name || `${client.first_name || ''} ${client.surname || ''}`.trim() || '—';
+        const fullName = client.full_name || `${(client.surname || '').toUpperCase()} ${client.first_name || ''}`.trim() || '—';
         const phone = client.phone_number || '—';
-        const dob = client.date_of_birth || '—';
+        const serviceType = client.service_type || '—';
+        const priority = client.priority || 'Normal';
+        const statusVal = client.status || 'Inwarded';
+        const assignedName = client.assigned_to_name || '—';
+        const dateVal = client.client_date || (client.created_at ? client.created_at.split('T')[0] : '—');
+
+        // Priority warning border on row
+        let priorityBorderClass = '';
+        if (priority === 'Urgent') priorityBorderClass = 'border-l-4 border-l-amber-500';
+        else if (priority === 'Very Urgent') priorityBorderClass = 'border-l-4 border-l-orange-500';
+        else if (priority === 'Critical') priorityBorderClass = 'border-l-4 border-l-red-500 bg-red-50/15';
+        else if (priority === 'Rework') priorityBorderClass = 'border-l-4 border-l-purple-500';
+
+        // Ready to delivered highlight
+        let statusHighlightClass = '';
+        if (statusVal === 'Ready to delivered') {
+            statusHighlightClass = 'bg-emerald-50/40 ring-1 ring-inset ring-emerald-200';
+        }
 
         if (isEditing) {
+            const serviceTypes = ["CONSEIL", "OFPRA", "RECOURS", "TA", "REEXAIN", "RERECOURS"];
+            const priorities = ["Normal", "Urgent", "Very Urgent", "Critical", "Rework"];
+            const statuses = ["Inwarded", "On Process", "Ready to delivered", "Delivered", "Closed"];
+            const users = App.state.assignableUsers || [];
+
             return `
-            <tr data-client-id="${client.id}" class="bg-blue-50/60 border-l-4 border-blue-600 transition">
-                <td class="px-6 py-3.5">
-                    <div class="space-y-1.5">
+            <tr data-client-id="${client.id}" class="bg-blue-50/70 border-l-4 border-blue-600 transition">
+                <td class="px-5 py-3 font-mono text-xs font-bold text-slate-800">
+                    ${App.escapeHtml(client.reference_number || '—')}
+                </td>
+                <td class="px-5 py-3">
+                    <div class="space-y-1">
                         <div class="flex gap-2">
+                            <input 
+                                type="text" 
+                                id="edit-sn-${client.id}" 
+                                value="${App.escapeHtml(client.surname || '')}" 
+                                placeholder="SURNAME" 
+                                class="px-2.5 py-1 text-xs uppercase bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none w-28 font-semibold text-slate-900 shadow-xs"
+                                oninput="this.value = this.value.toUpperCase(); App.updateInlineNamePreview('${client.id}')"
+                            >
                             <input 
                                 type="text" 
                                 id="edit-fn-${client.id}" 
                                 value="${App.escapeHtml(client.first_name || '')}" 
                                 placeholder="First Name" 
-                                class="px-2.5 py-1.5 text-sm bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none w-36 font-semibold text-slate-900 shadow-sm"
-                                oninput="App.updateInlineNamePreview('${client.id}')"
-                            >
-                            <input 
-                                type="text" 
-                                id="edit-sn-${client.id}" 
-                                value="${App.escapeHtml(client.surname || '')}" 
-                                placeholder="Surname" 
-                                class="px-2.5 py-1.5 text-sm bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none w-36 font-semibold text-slate-900 shadow-sm"
+                                class="px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none w-28 font-semibold text-slate-900 shadow-xs"
                                 oninput="App.updateInlineNamePreview('${client.id}')"
                             >
                         </div>
-                        <div class="text-xs text-slate-500 flex items-center gap-1.5">
-                            <span>Name =</span>
-                            <span id="edit-preview-${client.id}" class="font-semibold text-blue-700 bg-blue-100/70 px-1.5 py-0.5 rounded">${App.escapeHtml(fullName)}</span>
+                        <div class="text-[11px] text-slate-500">
+                            Derived: <span id="edit-preview-${client.id}" class="font-bold text-blue-700">${App.escapeHtml(fullName)}</span>
                         </div>
                     </div>
                 </td>
-                <td class="px-6 py-3.5">
+                <td class="px-5 py-3">
                     <input 
                         type="text" 
                         id="edit-phone-${client.id}" 
                         value="${App.escapeHtml(client.phone_number || '')}" 
-                        placeholder="+33 6 12 34 56 78" 
-                        class="px-2.5 py-1.5 text-sm bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none w-44 tabular-nums text-slate-800 shadow-sm"
+                        placeholder="0763796000" 
+                        class="px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none w-32 tabular-nums text-slate-800 shadow-xs"
                     >
                 </td>
-                <td class="px-6 py-3.5">
+                <td class="px-5 py-3">
+                    <select id="edit-st-${client.id}" class="px-2 py-1 text-xs bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 text-slate-800 shadow-xs">
+                        <option value="">None</option>
+                        ${serviceTypes.map(st => `<option value="${st}" ${client.service_type === st ? 'selected' : ''}>${st}</option>`).join('')}
+                    </select>
+                </td>
+                <td class="px-5 py-3">
+                    <select id="edit-pr-${client.id}" class="px-2 py-1 text-xs bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 text-slate-800 shadow-xs">
+                        ${priorities.map(p => `<option value="${p}" ${client.priority === p ? 'selected' : ''}>${p}</option>`).join('')}
+                    </select>
+                </td>
+                <td class="px-5 py-3">
+                    <select id="edit-status-${client.id}" class="px-2 py-1 text-xs bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 text-slate-800 shadow-xs">
+                        ${statuses.map(s => `<option value="${s}" ${client.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
+                </td>
+                <td class="px-5 py-3">
+                    <select id="edit-assignee-${client.id}" class="px-2 py-1 text-xs bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 text-slate-800 shadow-xs">
+                        <option value="">Unassigned</option>
+                        ${users.map(u => `<option value="${u.id}" ${client.assigned_to_id === u.id ? 'selected' : ''}>${App.escapeHtml(u.username)}</option>`).join('')}
+                    </select>
+                </td>
+                <td class="px-5 py-3">
                     <input 
                         type="date" 
-                        id="edit-dob-${client.id}" 
-                        value="${client.date_of_birth ? client.date_of_birth.split('T')[0] : ''}" 
-                        class="px-2.5 py-1.5 text-sm bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none w-36 tabular-nums text-slate-800 shadow-sm"
+                        id="edit-date-${client.id}" 
+                        value="${client.client_date || (client.created_at ? client.created_at.split('T')[0] : '')}" 
+                        class="px-2 py-1 text-xs bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 tabular-nums text-slate-800 shadow-xs"
                     >
                 </td>
-                <td class="px-6 py-3.5 text-right whitespace-nowrap">
+                <td class="px-5 py-3 text-right whitespace-nowrap">
                     <div class="flex items-center justify-end gap-1.5">
                         <button 
                             id="saveInlineBtn-${client.id}"
                             onclick="App.saveInlineEdit('${client.id}')" 
                             title="Save Changes" 
-                            class="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition shadow-sm"
+                            class="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition shadow-xs"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                         </button>
@@ -1037,10 +1245,13 @@ const Components = {
         return `
         <tr 
             data-client-id="${client.id}" 
-            class="hover:bg-blue-50/40 transition cursor-pointer group" 
+            class="hover:bg-blue-50/40 transition cursor-pointer group ${priorityBorderClass} ${statusHighlightClass}" 
             onclick="if(!event.target.closest('button') && !event.target.closest('.action-menu-dropdown')) App.openClientProfile('${client.id}')"
         >
-            <td class="px-6 py-4">
+            <td class="px-5 py-4 whitespace-nowrap">
+                ${Components.getRefBadge(client.reference_number)}
+            </td>
+            <td class="px-5 py-4">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition">
                         ${(client.first_name || 'C')[0]}
@@ -1051,13 +1262,25 @@ const Components = {
                     </div>
                 </div>
             </td>
-            <td class="px-6 py-4 text-slate-700 tabular-nums">
+            <td class="px-5 py-4 text-slate-700 tabular-nums text-xs whitespace-nowrap">
                 ${App.escapeHtml(phone)}
             </td>
-            <td class="px-6 py-4 text-slate-700 tabular-nums">
-                ${App.escapeHtml(dob)}
+            <td class="px-5 py-4 whitespace-nowrap">
+                ${Components.getServiceTypeBadge(serviceType)}
             </td>
-            <td class="px-6 py-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+            <td class="px-5 py-4 whitespace-nowrap">
+                ${Components.getPriorityBadge(priority)}
+            </td>
+            <td class="px-5 py-4 whitespace-nowrap">
+                ${Components.getStatusBadge(statusVal)}
+            </td>
+            <td class="px-5 py-4 text-slate-700 text-xs whitespace-nowrap">
+                ${App.escapeHtml(assignedName)}
+            </td>
+            <td class="px-5 py-4 text-slate-600 text-xs tabular-nums whitespace-nowrap">
+                ${App.escapeHtml(dateVal)}
+            </td>
+            <td class="px-5 py-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
                 <div class="relative inline-block text-left">
                     <button 
                         onclick="App.toggleLedgerActionMenu('${client.id}', event)" 
@@ -1075,7 +1298,7 @@ const Components = {
                             class="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition"
                         >
                             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                            View Profile
+                            View Details
                         </button>
                         <button 
                             onclick="App.startInlineEdit('${client.id}', event)" 
@@ -1098,131 +1321,338 @@ const Components = {
         `;
     },
 
-    NewClientModal: () => `
-        <div id="newClientModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" onclick="if(event.target === this) App.closeNewClientModal()">
-            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200" onclick="event.stopPropagation()">
-                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <div>
-                        <h3 class="text-lg font-bold text-slate-900">New Client Entry</h3>
-                        <p class="text-xs text-slate-500 mt-0.5">Add a new client record to the ledger</p>
+    NewClientModal: () => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const users = App.state.assignableUsers || [];
+
+        return `
+        <div id="newClientModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto" onclick="if(event.target === this) App.closeNewClientModal()">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden border border-slate-200 my-8" onclick="event.stopPropagation()">
+                <!-- Modal Header -->
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/70">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">New Client Entry</h3>
+                            <p class="text-xs text-slate-500">Create a client record. Ref # is automatically generated upon submission.</p>
+                        </div>
                     </div>
-                    <button onclick="App.closeNewClientModal()" class="text-slate-400 hover:text-slate-600 transition p-2 hover:bg-slate-100 rounded-full">
+                    <button onclick="App.closeNewClientModal()" class="text-slate-400 hover:text-slate-600 transition p-2 hover:bg-slate-200 rounded-full">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
 
-                <form id="newClientForm" onsubmit="event.preventDefault(); App.submitNewClient();" class="p-6 space-y-4">
-                    <div id="newClientError" class="hidden p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700"></div>
+                <form id="newClientForm" onsubmit="event.preventDefault(); App.submitNewClient();" class="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+                    <div id="newClientError" class="hidden p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-700 flex items-center gap-2"></div>
 
-                    <!-- First Name and Surname -->
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">First Name <span class="text-red-500">*</span></label>
-                            <input 
-                                type="text" 
-                                id="newClientFirstName" 
-                                required 
-                                placeholder="e.g. Jean" 
-                                oninput="App.updateNewClientPreview()"
-                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition"
-                            >
+                    <!-- Workflow & Header Section -->
+                    <div class="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-blue-900">Workflow & Assignment</h4>
+                            <span class="text-[11px] text-blue-600 font-medium">Ref # auto-generated (SURNAME + phone last 4 digits)</span>
                         </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Surname <span class="text-red-500">*</span></label>
-                            <input 
-                                type="text" 
-                                id="newClientSurname" 
-                                required 
-                                placeholder="e.g. Dupont" 
-                                oninput="App.updateNewClientPreview()"
-                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition"
-                            >
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Date <span class="text-red-500">*</span></label>
+                                <input type="date" id="newClientDate" value="${todayStr}" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Service Type <span class="text-red-500">*</span></label>
+                                <select id="newClientServiceType" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option value="CONSEIL">CONSEIL</option>
+                                    <option value="OFPRA" selected>OFPRA</option>
+                                    <option value="RECOURS">RECOURS</option>
+                                    <option value="TA">TA</option>
+                                    <option value="REEXAIN">REEXAIN</option>
+                                    <option value="RERECOURS">RERECOURS</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Priority</label>
+                                <select id="newClientPriority" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option value="Normal" selected>Normal</option>
+                                    <option value="Urgent">Urgent</option>
+                                    <option value="Very Urgent">Very Urgent</option>
+                                    <option value="Critical">Critical</option>
+                                    <option value="Rework">Rework</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+                                <select id="newClientStatus" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option value="Inwarded" selected>Inwarded</option>
+                                    <option value="On Process">On Process</option>
+                                    <option value="Ready to delivered">Ready to delivered</option>
+                                    <option value="Delivered">Delivered</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-4">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Assigned To</label>
+                                <select id="newClientAssignedTo" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option value="">Unassigned</option>
+                                    ${users.map(u => `<option value="${u.id}">${App.escapeHtml(u.username)}</option>`).join('')}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Derived Full Name Preview -->
-                    <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-                        <span class="text-xs text-slate-500">Derived Full Name:</span>
-                        <p id="newClientDerivedPreview" class="text-sm font-bold text-slate-900 mt-0.5">None</p>
+                    <!-- SECTION A: Personal Information -->
+                    <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">A</span>
+                            <h4 class="text-sm font-bold text-slate-900">Personal Information</h4>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Surname <span class="text-red-500">*</span></label>
+                                <input 
+                                    type="text" 
+                                    id="newClientSurname" 
+                                    required 
+                                    placeholder="e.g. SRIKARAN" 
+                                    oninput="this.value = this.value.toUpperCase(); App.updateNewClientPreview();"
+                                    class="w-full px-3 py-2 text-xs uppercase font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                                <input 
+                                    type="text" 
+                                    id="newClientFirstName" 
+                                    required 
+                                    placeholder="e.g. Jean" 
+                                    oninput="App.updateNewClientPreview();"
+                                    class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 mb-1">Derived Full Name</label>
+                                <div class="px-3 py-2 text-xs font-bold text-blue-900 bg-blue-50 border border-blue-200 rounded-lg truncate" id="newClientDerivedPreview">
+                                    —
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth <span class="text-red-500">*</span></label>
+                                <input type="date" id="newClientDob" required max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Place of Birth <span class="text-red-500">*</span></label>
+                                <input type="text" id="newClientPlaceOfBirth" required placeholder="e.g. Jaffna" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Birth Place <span class="text-red-500">*</span></label>
+                                <input type="text" id="newClientBirthPlace" required placeholder="e.g. Northern Province" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
+                                <select id="newClientGender" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option value="">Not Revealed</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Not Revealed">Not Revealed</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Nationality</label>
+                                <input type="text" id="newClientNationality" value="SRI LANKAISE" placeholder="SRI LANKAISE" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Marital Status</label>
+                                <select id="newClientMaritalStatus" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option value="">Single</option>
+                                    <option value="Single">Single</option>
+                                    <option value="Married">Married</option>
+                                    <option value="Separated">Separated</option>
+                                    <option value="Divorced">Divorced</option>
+                                    <option value="Widowed">Widowed</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Country (Section A)</label>
+                                <input type="text" id="newClientPersonalCountry" placeholder="e.g. Sri Lanka" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">SP <span class="text-red-500">*</span></label>
+                                <input type="date" id="newClientSp" required max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">EF <span class="text-red-500">*</span></label>
+                                <input type="date" id="newClientEf" required max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Phone Number -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Phone Number</label>
-                        <input 
-                            type="text" 
-                            id="newClientPhone" 
-                            placeholder="e.g. +33 6 12 34 56 78" 
-                            class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition tabular-nums"
-                        >
-                        <p class="text-[11px] text-slate-400 mt-1">Accepts international and local formats</p>
+                    <!-- SECTION B: Identification / OFPRA Information -->
+                    <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">B</span>
+                            <h4 class="text-sm font-bold text-slate-900">Identification / OFPRA Information</h4>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Numéro OFPRA</label>
+                                <input type="text" id="newClientOfpra" placeholder="OFPRA identifier" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Numéro APS (10 digits)</label>
+                                <input type="text" id="newClientAps" maxlength="10" placeholder="10 numeric digits" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Delivered By</label>
+                                <input type="text" id="newClientDeliveredBy" placeholder="Issuing authority" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">From Date</label>
+                                <input type="date" id="newClientFrom" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">To Date</label>
+                                <input type="date" id="newClientTo" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Date of Birth -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Date of Birth</label>
-                        <input 
-                            type="date" 
-                            id="newClientDob" 
-                            class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition tabular-nums"
-                        >
+                    <!-- SECTION C: Contact Information -->
+                    <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">C</span>
+                            <h4 class="text-sm font-bold text-slate-900">Contact Information</h4>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Phone <span class="text-red-500">*</span></label>
+                                <input type="text" id="newClientPhone" required maxlength="10" placeholder="0763796000 (10 digits starts with 0)" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Secondary Phone</label>
+                                <input type="text" id="newClientSecPhone" maxlength="10" placeholder="0XXXXXXXXX (optional)" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                                <input type="email" id="newClientEmail" placeholder="client@example.com" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="md:col-span-3">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Address <span class="text-red-500">*</span></label>
+                                <input type="text" id="newClientAddress" required placeholder="Street address" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Ville <span class="text-red-500">*</span></label>
+                                <input type="text" id="newClientVille" required placeholder="City / Ville" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Postal Code <span class="text-red-500">*</span></label>
+                                <input type="text" id="newClientPostalCode" required maxlength="5" placeholder="75001 (5 digits)" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Country (Contact)</label>
+                                <input type="text" id="newClientContactCountry" placeholder="France" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="pt-3 border-t border-slate-100 flex justify-end gap-3">
+                    <!-- SECTION D: Remarks (Rich Text) -->
+                    <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">D</span>
+                            <h4 class="text-sm font-bold text-slate-900">Remarks</h4>
+                        </div>
+                        ${Components.RichTextEditor('newClientRemarks', '', 'Add remarks, case notes, or special requirements...')}
+                    </div>
+
+                    <!-- SECTIONS E-H: Family Information (Optional) -->
+                    <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">E-H</span>
+                                <h4 class="text-sm font-bold text-slate-900">Family Information (Optional)</h4>
+                            </div>
+                            <span class="text-xs text-slate-400">Optional — Can also be added later</span>
+                        </div>
+
+                        <!-- Section E: Parents Details -->
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                            <span class="text-xs font-bold text-slate-700">Section E: Parents Details</span>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <input type="text" id="newClientFatherName" placeholder="Father's Full Name" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                                <input type="text" id="newClientMotherName" placeholder="Mother's Full Name" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                            </div>
+                        </div>
+
+                        <!-- Section G: Epouse Details -->
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                            <span class="text-xs font-bold text-slate-700">Section G: Epouse (Spouse)</span>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <input type="text" id="newClientSpouseName" placeholder="Spouse Full Name" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                                <input type="text" id="newClientSpouseMaiden" placeholder="Maiden Name" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                                <input type="date" id="newClientSpouseDob" placeholder="DOB" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Actions -->
+                    <div class="pt-4 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white py-3">
                         <button 
                             type="button" 
                             onclick="App.closeNewClientModal()" 
-                            class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+                            class="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
                         >
                             Cancel
                         </button>
                         <button 
                             type="submit" 
                             id="saveNewClientBtn" 
-                            class="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 hover:shadow-md transition shadow-sm"
+                            class="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 hover:shadow-md transition shadow-xs flex items-center gap-2"
                         >
-                            Save Client
+                            Save Client Record
                         </button>
                     </div>
                 </form>
             </div>
         </div>
-    `,
+        `;
+    },
 
     ClientProfileView: (client, activeSection = null) => {
         if (!client) return '';
-        const fullName = client.full_name || `${client.first_name || ''} ${client.surname || ''}`.trim() || 'Client Profile';
+        const fullName = client.full_name || `${(client.surname || '').toUpperCase()} ${client.first_name || ''}`.trim() || 'Client Profile';
         const files = client.files || [];
         const isEditing = (sec) => activeSection === sec;
 
-        // Structured JSON sections helper
-        const idInfo = client.identification_info || {};
-        const caseInfo = client.case_info || {};
-        const bgInfo = client.background_info || {};
-        const addInfo = client.additional_info || {};
-
         const renderField = (label, value) => `
             <div class="space-y-0.5">
-                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">${label}</span>
-                <p class="text-sm font-medium text-slate-800 break-words">${value || '—'}</p>
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">${label}</span>
+                <p class="text-sm font-semibold text-slate-800 break-words">${value ? App.escapeHtml(value) : '<span class="text-slate-400 font-normal">—</span>'}</p>
             </div>
         `;
+
+        const serviceTypes = ["CONSEIL", "OFPRA", "RECOURS", "TA", "REEXAIN", "RERECOURS"];
+        const priorities = ["Normal", "Urgent", "Very Urgent", "Critical", "Rework"];
+        const statuses = ["Inwarded", "On Process", "Ready to delivered", "Delivered", "Closed"];
+        const users = App.state.assignableUsers || [];
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // Family records
+        const parents = client.parents_details || {};
+        const siblings = client.siblings || [];
+        const epouse = client.epouse || {};
+        const kids = client.kids || [];
 
         return `
         <div class="pl-64 min-h-screen bg-slate-50">
             <div class="max-w-5xl mx-auto p-8">
                 <!-- Top Navigation Bar -->
-                <div class="flex items-center justify-between mb-8">
-                    <div class="flex items-center gap-4">
-                        <button 
-                            onclick="App.navigateTo('ledger')" 
-                            class="p-2 -ml-2 rounded-lg hover:bg-slate-200 text-slate-600 transition flex items-center gap-1.5 text-sm font-medium"
-                            title="Back to Ledger"
-                        >
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                            Back to Ledger
-                        </button>
-                    </div>
+                <div class="flex items-center justify-between mb-6">
+                    <button 
+                        onclick="App.navigateTo('ledger')" 
+                        class="p-2 -ml-2 rounded-lg hover:bg-slate-200 text-slate-600 transition flex items-center gap-1.5 text-sm font-semibold"
+                        title="Back to Ledger"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                        Back to Ledger
+                    </button>
 
                     <div class="flex items-center gap-3">
                         <button 
@@ -1236,36 +1666,110 @@ const Components = {
                 </div>
 
                 <!-- Client Header Card -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div class="flex items-center gap-4">
-                        <div class="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-2xl font-bold uppercase shadow-sm">
-                            ${(client.first_name || 'C')[0]}
-                        </div>
-                        <div>
-                            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">${App.escapeHtml(fullName)}</h2>
-                            <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1">
-                                ${client.phone_number ? `<span class="flex items-center gap-1"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>${App.escapeHtml(client.phone_number)}</span>` : ''}
-                                ${client.email ? `<span class="flex items-center gap-1"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>${App.escapeHtml(client.email)}</span>` : ''}
-                                ${client.date_of_birth ? `<span class="flex items-center gap-1"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>DOB: ${App.escapeHtml(client.date_of_birth)}</span>` : ''}
-                                <span>&middot;</span>
-                                <span>Created ${new Date(client.created_at).toLocaleDateString('en-GB')}</span>
+                <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6 mb-6">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-5 border-b border-slate-100">
+                        <div class="flex items-center gap-4">
+                            <div class="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-2xl font-bold uppercase shadow-sm flex-shrink-0">
+                                ${(client.first_name || 'C')[0]}
                             </div>
+                            <div>
+                                <div class="flex items-center gap-3 flex-wrap">
+                                    <h2 class="text-2xl font-bold text-slate-900 tracking-tight">${App.escapeHtml(fullName)}</h2>
+                                    ${Components.getRefBadge(client.reference_number)}
+                                </div>
+                                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2">
+                                    ${client.phone_number ? `<span class="flex items-center gap-1 font-semibold text-slate-700 tabular-nums"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>${App.escapeHtml(client.phone_number)}</span>` : ''}
+                                    ${client.secondary_phone ? `<span class="flex items-center gap-1 tabular-nums text-slate-500">Sec: ${App.escapeHtml(client.secondary_phone)}</span>` : ''}
+                                    ${client.email ? `<span class="flex items-center gap-1"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>${App.escapeHtml(client.email)}</span>` : ''}
+                                    ${client.date_of_birth ? `<span class="flex items-center gap-1 tabular-nums">DOB: ${App.escapeHtml(client.date_of_birth)}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            ${isEditing('header') ? `
+                                <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                <button id="saveHeader-btn" onclick="App.saveProfileSection('${client.id}', 'header')" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
+                            ` : `
+                                <button onclick="App.startProfileSectionEdit('${client.id}', 'header')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    Edit Workflow
+                                </button>
+                                <button onclick="document.getElementById('profile-files-section').scrollIntoView({behavior: 'smooth'})" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                    Files (${files.length})
+                                </button>
+                            `}
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-3">
-                        <button onclick="document.getElementById('profile-files-section').scrollIntoView({behavior: 'smooth'})" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
-                            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                            Files (${files.length})
-                        </button>
+                    <!-- Workflow badges row -->
+                    <div class="pt-4">
+                        ${isEditing('header') ? `
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Date</label>
+                                    <input type="date" id="secHdr-date" value="${client.client_date || (client.created_at ? client.created_at.split('T')[0] : '')}" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Service Type</label>
+                                    <select id="secHdr-service_type" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                                        <option value="">None</option>
+                                        ${serviceTypes.map(st => `<option value="${st}" ${client.service_type === st ? 'selected' : ''}>${st}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Priority</label>
+                                    <select id="secHdr-priority" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                                        ${priorities.map(p => `<option value="${p}" ${client.priority === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Status</label>
+                                    <select id="secHdr-status" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                                        ${statuses.map(s => `<option value="${s}" ${client.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="md:col-span-4">
+                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Assigned To</label>
+                                    <select id="secHdr-assigned_to" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                                        <option value="">Unassigned</option>
+                                        ${users.map(u => `<option value="${u.id}" ${client.assigned_to_id === u.id ? 'selected' : ''}>${App.escapeHtml(u.username)}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                <div>
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Date</span>
+                                    <span class="text-xs font-semibold text-slate-800 tabular-nums">${App.escapeHtml(client.client_date || (client.created_at ? client.created_at.split('T')[0] : '—'))}</span>
+                                </div>
+                                <div>
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Service Type</span>
+                                    ${Components.getServiceTypeBadge(client.service_type)}
+                                </div>
+                                <div>
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Priority</span>
+                                    ${Components.getPriorityBadge(client.priority)}
+                                </div>
+                                <div>
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Status</span>
+                                    ${Components.getStatusBadge(client.status)}
+                                </div>
+                                <div>
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Assigned To</span>
+                                    <span class="text-xs font-semibold text-slate-800">${App.escapeHtml(client.assigned_to_name || 'Unassigned')}</span>
+                                </div>
+                            </div>
+                        `}
                     </div>
                 </div>
 
-                <!-- Profile Sections Accordion / Cards -->
+                <!-- Sections Cards -->
                 <div class="space-y-6">
 
                     <!-- SECTION A: Personal Information -->
-                    <div id="section-A" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div id="section-A" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">A</span>
@@ -1274,17 +1778,11 @@ const Components = {
                             <div>
                                 ${isEditing('sectionA') ? `
                                     <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                            Cancel
-                                        </button>
-                                        <button id="saveSectionA-btn" onclick="App.saveProfileSection('${client.id}', 'sectionA')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-sm flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                            Save
-                                        </button>
+                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                        <button id="saveSectionA-btn" onclick="App.saveProfileSection('${client.id}', 'sectionA')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
                                     </div>
                                 ` : `
-                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionA')" class="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
+                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionA')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         Edit
                                     </button>
@@ -1294,82 +1792,98 @@ const Components = {
 
                         <div class="p-6">
                             ${isEditing('sectionA') ? `
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">First Name *</label>
-                                        <input type="text" id="secA-first_name" value="${App.escapeHtml(client.first_name || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-700 mb-1">Surname *</label>
-                                        <input type="text" id="secA-surname" value="${App.escapeHtml(client.surname || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <input type="text" id="secA-surname" value="${App.escapeHtml(client.surname || '')}" oninput="this.value = this.value.toUpperCase()" class="w-full px-3 py-2 text-xs uppercase font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
-                                        <input type="date" id="secA-date_of_birth" value="${client.date_of_birth ? client.date_of_birth.split('T')[0] : ''}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">First Name *</label>
+                                        <input type="text" id="secA-first_name" value="${App.escapeHtml(client.first_name || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth *</label>
+                                        <input type="date" id="secA-date_of_birth" value="${client.date_of_birth ? client.date_of_birth.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Place of Birth *</label>
+                                        <input type="text" id="secA-place_of_birth" value="${App.escapeHtml(client.place_of_birth || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Birth Place *</label>
+                                        <input type="text" id="secA-birth_place" value="${App.escapeHtml(client.birth_place || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
-                                        <input type="text" id="secA-gender" value="${App.escapeHtml(client.gender || '')}" placeholder="e.g. Male, Female, Other" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <select id="secA-gender" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                            <option value="" ${!client.gender ? 'selected' : ''}>Not Revealed</option>
+                                            <option value="Male" ${client.gender === 'Male' ? 'selected' : ''}>Male</option>
+                                            <option value="Female" ${client.gender === 'Female' ? 'selected' : ''}>Female</option>
+                                            <option value="Not Revealed" ${client.gender === 'Not Revealed' ? 'selected' : ''}>Not Revealed</option>
+                                        </select>
                                     </div>
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-700 mb-1">Nationality</label>
-                                        <input type="text" id="secA-nationality" value="${App.escapeHtml(client.nationality || '')}" placeholder="e.g. French, Afghan, etc." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Place of Birth</label>
-                                        <input type="text" id="secA-place_of_birth" value="${App.escapeHtml(client.place_of_birth || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Current Country</label>
-                                        <input type="text" id="secA-current_country" value="${App.escapeHtml(client.current_country || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <input type="text" id="secA-nationality" value="${App.escapeHtml(client.nationality || 'SRI LANKAISE')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-700 mb-1">Marital Status</label>
-                                        <input type="text" id="secA-marital_status" value="${App.escapeHtml(client.marital_status || '')}" placeholder="Single, Married, Divorced" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <select id="secA-marital_status" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                            <option value="" ${!client.marital_status ? 'selected' : ''}>Select</option>
+                                            <option value="Single" ${client.marital_status === 'Single' ? 'selected' : ''}>Single</option>
+                                            <option value="Married" ${client.marital_status === 'Married' ? 'selected' : ''}>Married</option>
+                                            <option value="Separated" ${client.marital_status === 'Separated' ? 'selected' : ''}>Separated</option>
+                                            <option value="Divorced" ${client.marital_status === 'Divorced' ? 'selected' : ''}>Divorced</option>
+                                            <option value="Widowed" ${client.marital_status === 'Widowed' ? 'selected' : ''}>Widowed</option>
+                                        </select>
                                     </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Preferred Language</label>
-                                        <input type="text" id="secA-preferred_language" value="${App.escapeHtml(client.preferred_language || '')}" placeholder="e.g. French, Pashto, Arabic" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Country (Section A)</label>
+                                        <input type="text" id="secA-personal_country" value="${App.escapeHtml(client.personal_country || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">SP *</label>
+                                        <input type="date" id="secA-sp" value="${client.sp ? client.sp.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">EF *</label>
+                                        <input type="date" id="secA-ef" value="${client.ef ? client.ef.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                 </div>
                             ` : `
                                 <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
                                     ${renderField('Full Name (Derived)', client.full_name)}
-                                    ${renderField('First Name', client.first_name)}
                                     ${renderField('Surname', client.surname)}
+                                    ${renderField('First Name', client.first_name)}
                                     ${renderField('Date of Birth', client.date_of_birth)}
+                                    ${renderField('Place of Birth', client.place_of_birth)}
+                                    ${renderField('Birth Place', client.birth_place)}
                                     ${renderField('Gender', client.gender)}
                                     ${renderField('Nationality', client.nationality)}
-                                    ${renderField('Place of Birth', client.place_of_birth)}
-                                    ${renderField('Current Country', client.current_country)}
                                     ${renderField('Marital Status', client.marital_status)}
-                                    ${renderField('Preferred Language', client.preferred_language)}
+                                    ${renderField('Country', client.personal_country)}
+                                    ${renderField('SP', client.sp)}
+                                    ${renderField('EF', client.ef)}
                                 </div>
                             `}
                         </div>
                     </div>
 
-                    <!-- SECTION B: Contact Information -->
-                    <div id="section-B" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <!-- SECTION B: Identification / OFPRA Information -->
+                    <div id="section-B" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">B</span>
-                                <h3 class="text-base font-bold text-slate-900">Contact Information</h3>
+                                <h3 class="text-base font-bold text-slate-900">Identification / OFPRA Information</h3>
                             </div>
                             <div>
                                 ${isEditing('sectionB') ? `
                                     <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                            Cancel
-                                        </button>
-                                        <button id="saveSectionB-btn" onclick="App.saveProfileSection('${client.id}', 'sectionB')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-sm flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                            Save
-                                        </button>
+                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                        <button id="saveSectionB-btn" onclick="App.saveProfileSection('${client.id}', 'sectionB')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
                                     </div>
                                 ` : `
-                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionB')" class="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
+                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionB')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         Edit
                                     </button>
@@ -1379,81 +1893,55 @@ const Components = {
 
                         <div class="p-6">
                             ${isEditing('sectionB') ? `
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Phone Number</label>
-                                        <input type="text" id="secB-phone_number" value="${App.escapeHtml(client.phone_number || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none tabular-nums">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Secondary Phone Number</label>
-                                        <input type="text" id="secB-secondary_phone" value="${App.escapeHtml(client.secondary_phone || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none tabular-nums">
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
-                                        <input type="email" id="secB-email" value="${App.escapeHtml(client.email || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Current Residential Address</label>
-                                        <textarea id="secB-address" rows="2" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">${App.escapeHtml(client.address || '')}</textarea>
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Previous Address</label>
-                                        <textarea id="secB-previous_address" rows="2" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">${App.escapeHtml(client.previous_address || '')}</textarea>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Numéro OFPRA</label>
+                                        <input type="text" id="secB-numero_ofpra" value="${App.escapeHtml(client.numero_ofpra || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">City</label>
-                                        <input type="text" id="secB-city" value="${App.escapeHtml(client.city || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Numéro APS (10 digits)</label>
+                                        <input type="text" id="secB-numero_aps" maxlength="10" value="${App.escapeHtml(client.numero_aps || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">State / Province</label>
-                                        <input type="text" id="secB-state_province" value="${App.escapeHtml(client.state_province || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Delivered By</label>
+                                        <input type="text" id="secB-delivered_by" value="${App.escapeHtml(client.delivered_by || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Postal Code</label>
-                                        <input type="text" id="secB-postal_code" value="${App.escapeHtml(client.postal_code || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none tabular-nums">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">From Date</label>
+                                        <input type="date" id="secB-from_date" value="${client.from_date ? client.from_date.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Country</label>
-                                        <input type="text" id="secB-country" value="${App.escapeHtml(client.country || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">To Date</label>
+                                        <input type="date" id="secB-to_date" value="${client.to_date ? client.to_date.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                 </div>
                             ` : `
                                 <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    ${renderField('Primary Phone', client.phone_number)}
-                                    ${renderField('Secondary Phone', client.secondary_phone)}
-                                    ${renderField('Email Address', client.email)}
-                                    ${renderField('Residential Address', client.address)}
-                                    ${renderField('Previous Address', client.previous_address)}
-                                    ${renderField('City', client.city)}
-                                    ${renderField('State / Province', client.state_province)}
-                                    ${renderField('Postal Code', client.postal_code)}
-                                    ${renderField('Country', client.country)}
+                                    ${renderField('Numéro OFPRA', client.numero_ofpra)}
+                                    ${renderField('Numéro APS', client.numero_aps)}
+                                    ${renderField('Delivered By', client.delivered_by)}
+                                    ${renderField('From', client.from_date)}
+                                    ${renderField('To', client.to_date)}
                                 </div>
                             `}
                         </div>
                     </div>
 
-                    <!-- SECTION C: Identification Information -->
-                    <div id="section-C" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <!-- SECTION C: Contact Information -->
+                    <div id="section-C" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">C</span>
-                                <h3 class="text-base font-bold text-slate-900">Identification Information</h3>
+                                <h3 class="text-base font-bold text-slate-900">Contact Information</h3>
                             </div>
                             <div>
                                 ${isEditing('sectionC') ? `
                                     <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                            Cancel
-                                        </button>
-                                        <button id="saveSectionC-btn" onclick="App.saveProfileSection('${client.id}', 'sectionC')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-sm flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                            Save
-                                        </button>
+                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                        <button id="saveSectionC-btn" onclick="App.saveProfileSection('${client.id}', 'sectionC')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
                                     </div>
                                 ` : `
-                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionC')" class="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
+                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionC')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         Edit
                                     </button>
@@ -1463,66 +1951,67 @@ const Components = {
 
                         <div class="p-6">
                             ${isEditing('sectionC') ? `
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Passport Number</label>
-                                        <input type="text" id="secC-passport_number" value="${App.escapeHtml(idInfo.passport_number || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Phone * (10 digits starts with 0)</label>
+                                        <input type="text" id="secC-phone_number" value="${App.escapeHtml(client.phone_number || '')}" maxlength="10" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Passport Issuing Country</label>
-                                        <input type="text" id="secC-passport_country" value="${App.escapeHtml(idInfo.passport_country || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Secondary Phone (10 digits)</label>
+                                        <input type="text" id="secC-secondary_phone" value="${App.escapeHtml(client.secondary_phone || '')}" maxlength="10" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Passport Issue Date</label>
-                                        <input type="date" id="secC-passport_issue_date" value="${idInfo.passport_issue_date || ''}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                                        <input type="email" id="secC-email" value="${App.escapeHtml(client.email || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div class="md:col-span-3">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Address *</label>
+                                        <input type="text" id="secC-address" value="${App.escapeHtml(client.address || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Passport Expiry Date</label>
-                                        <input type="date" id="secC-passport_expiry_date" value="${idInfo.passport_expiry_date || ''}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Ville *</label>
+                                        <input type="text" id="secC-ville" value="${App.escapeHtml(client.ville || client.city || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">National ID Number</label>
-                                        <input type="text" id="secC-national_id" value="${App.escapeHtml(idInfo.national_id || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Postal Code * (5 digits)</label>
+                                        <input type="text" id="secC-postal_code" value="${App.escapeHtml(client.postal_code || '')}" maxlength="5" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Other Identification Details</label>
-                                        <input type="text" id="secC-other_id" value="${App.escapeHtml(idInfo.other_id || '')}" placeholder="Visa, Residence Permit, etc." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Country</label>
+                                        <input type="text" id="secC-country" value="${App.escapeHtml(client.country || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                 </div>
                             ` : `
                                 <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    ${renderField('Passport Number', idInfo.passport_number)}
-                                    ${renderField('Passport Issuing Country', idInfo.passport_country)}
-                                    ${renderField('Passport Issue Date', idInfo.passport_issue_date)}
-                                    ${renderField('Passport Expiry Date', idInfo.passport_expiry_date)}
-                                    ${renderField('National ID Number', idInfo.national_id)}
-                                    ${renderField('Other Identification Details', idInfo.other_id)}
+                                    ${renderField('Primary Phone', client.phone_number)}
+                                    ${renderField('Secondary Phone', client.secondary_phone)}
+                                    ${renderField('Email Address', client.email)}
+                                    <div class="col-span-2 md:col-span-3">
+                                        ${renderField('Address', client.address)}
+                                    </div>
+                                    ${renderField('Ville', client.ville || client.city)}
+                                    ${renderField('Postal Code', client.postal_code)}
+                                    ${renderField('Country', client.country)}
                                 </div>
                             `}
                         </div>
                     </div>
 
-                    <!-- SECTION D: Case Information -->
-                    <div id="section-D" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <!-- SECTION D: Remarks (Rich Text) -->
+                    <div id="section-D" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">D</span>
-                                <h3 class="text-base font-bold text-slate-900">Case Information</h3>
+                                <h3 class="text-base font-bold text-slate-900">Remarks</h3>
                             </div>
                             <div>
                                 ${isEditing('sectionD') ? `
                                     <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                            Cancel
-                                        </button>
-                                        <button id="saveSectionD-btn" onclick="App.saveProfileSection('${client.id}', 'sectionD')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-sm flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                            Save
-                                        </button>
+                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                        <button id="saveSectionD-btn" onclick="App.saveProfileSection('${client.id}', 'sectionD')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
                                     </div>
                                 ` : `
-                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionD')" class="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
+                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionD')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         Edit
                                     </button>
@@ -1532,90 +2021,30 @@ const Components = {
 
                         <div class="p-6">
                             ${isEditing('sectionD') ? `
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Case Reference Number</label>
-                                        <input type="text" id="secD-case_reference" value="${App.escapeHtml(caseInfo.case_reference || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Case Type</label>
-                                        <input type="text" id="secD-case_type" value="${App.escapeHtml(caseInfo.case_type || '')}" placeholder="Asylum, Appeal, Recours, etc." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Case Status</label>
-                                        <input type="text" id="secD-case_status" value="${App.escapeHtml(caseInfo.case_status || '')}" placeholder="Active, Pending, Closed" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Assigned Case Worker</label>
-                                        <input type="text" id="secD-assigned_worker" value="${App.escapeHtml(caseInfo.assigned_worker || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date Case Opened</label>
-                                        <input type="date" id="secD-date_case_opened" value="${caseInfo.date_case_opened || ''}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Country of Origin</label>
-                                        <input type="text" id="secD-country_of_origin" value="${App.escapeHtml(caseInfo.country_of_origin || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Country of Application</label>
-                                        <input type="text" id="secD-country_of_application" value="${App.escapeHtml(caseInfo.country_of_application || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Immigration / Legal Ref Number</label>
-                                        <input type="text" id="secD-legal_reference" value="${App.escapeHtml(caseInfo.legal_reference || '')}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Case Summary</label>
-                                        <textarea id="secD-case_summary" rows="3" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">${App.escapeHtml(caseInfo.case_summary || '')}</textarea>
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Additional Case Notes</label>
-                                        <textarea id="secD-case_notes" rows="2" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">${App.escapeHtml(caseInfo.case_notes || '')}</textarea>
-                                    </div>
-                                </div>
+                                ${Components.RichTextEditor('secD-remarks', client.remarks || '', 'Edit remarks and formatted notes...')}
                             ` : `
-                                <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    ${renderField('Case Reference', caseInfo.case_reference)}
-                                    ${renderField('Case Type', caseInfo.case_type)}
-                                    ${renderField('Case Status', caseInfo.case_status)}
-                                    ${renderField('Assigned Worker', caseInfo.assigned_worker)}
-                                    ${renderField('Date Opened', caseInfo.date_case_opened)}
-                                    ${renderField('Country of Origin', caseInfo.country_of_origin)}
-                                    ${renderField('Country of Application', caseInfo.country_of_application)}
-                                    ${renderField('Legal Ref Number', caseInfo.legal_reference)}
-                                    <div class="col-span-2 md:col-span-3">
-                                        ${renderField('Case Summary', caseInfo.case_summary)}
-                                    </div>
-                                    <div class="col-span-2 md:col-span-3">
-                                        ${renderField('Case Notes', caseInfo.case_notes)}
-                                    </div>
+                                <div class="prose prose-sm max-w-none text-slate-800 bg-slate-50/50 p-4 rounded-lg border border-slate-100 min-h-[60px]">
+                                    ${client.remarks ? client.remarks : '<span class="text-slate-400 font-normal">—</span>'}
                                 </div>
                             `}
                         </div>
                     </div>
 
-                    <!-- SECTION E: Background Information -->
-                    <div id="section-E" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <!-- SECTION E: Parents Details -->
+                    <div id="section-E" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">E</span>
-                                <h3 class="text-base font-bold text-slate-900">Background Information</h3>
+                                <h3 class="text-base font-bold text-slate-900">Parents Details</h3>
                             </div>
                             <div>
                                 ${isEditing('sectionE') ? `
                                     <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                            Cancel
-                                        </button>
-                                        <button id="saveSectionE-btn" onclick="App.saveProfileSection('${client.id}', 'sectionE')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-sm flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                            Save
-                                        </button>
+                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                        <button id="saveSectionE-btn" onclick="App.saveProfileSection('${client.id}', 'sectionE')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
                                     </div>
                                 ` : `
-                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionE')" class="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
+                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionE')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         Edit
                                     </button>
@@ -1626,99 +2055,218 @@ const Components = {
                         <div class="p-6">
                             ${isEditing('sectionE') ? `
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Educational Background</label>
-                                        <textarea id="secE-education" rows="2" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">${App.escapeHtml(bgInfo.education || '')}</textarea>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Father's Name</label>
+                                        <input type="text" id="secE-father_name" value="${App.escapeHtml(parents.father_name || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Mother's Name</label>
+                                        <input type="text" id="secE-mother_name" value="${App.escapeHtml(parents.mother_name || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
                                     </div>
                                     <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Employment History & Occupations</label>
-                                        <textarea id="secE-employment" rows="2" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">${App.escapeHtml(bgInfo.employment || '')}</textarea>
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Family Information</label>
-                                        <textarea id="secE-family_info" rows="2" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Spouse, dependents, family in country of origin/asylum">${App.escapeHtml(bgInfo.family_info || '')}</textarea>
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Relevant Personal History</label>
-                                        <textarea id="secE-personal_history" rows="2" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">${App.escapeHtml(bgInfo.personal_history || '')}</textarea>
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Previous Applications / History</label>
-                                        <textarea id="secE-previous_applications" rows="2" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">${App.escapeHtml(bgInfo.previous_applications || '')}</textarea>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Parents Notes / Address</label>
+                                        <textarea id="secE-notes" rows="2" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">${App.escapeHtml(parents.notes || '')}</textarea>
                                     </div>
                                 </div>
                             ` : `
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    ${renderField('Educational Background', bgInfo.education)}
-                                    ${renderField('Employment History', bgInfo.employment)}
-                                    ${renderField('Family Information', bgInfo.family_info)}
-                                    ${renderField('Relevant Personal History', bgInfo.personal_history)}
+                                    ${renderField("Father's Name", parents.father_name)}
+                                    ${renderField("Mother's Name", parents.mother_name)}
                                     <div class="md:col-span-2">
-                                        ${renderField('Previous Applications', bgInfo.previous_applications)}
+                                        ${renderField("Notes / Address", parents.notes)}
                                     </div>
                                 </div>
                             `}
                         </div>
                     </div>
 
-                    <!-- SECTION F: Additional Information -->
-                    <div id="section-F" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <!-- SECTION F: Siblings -->
+                    <div id="section-F" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">F</span>
-                                <h3 class="text-base font-bold text-slate-900">Additional Information</h3>
+                                <div>
+                                    <h3 class="text-base font-bold text-slate-900">Siblings</h3>
+                                    <p class="text-xs text-slate-500">Brothers and sisters of the client</p>
+                                </div>
+                            </div>
+                            <button onclick="App.openAddSiblingModal('${client.id}')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition shadow-xs flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                Add Sibling
+                            </button>
+                        </div>
+
+                        <div class="p-6">
+                            ${siblings.length === 0 ? `
+                                <div class="text-center py-6 text-slate-400 text-xs">
+                                    No siblings recorded for this client.
+                                </div>
+                            ` : `
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left text-xs">
+                                        <thead class="text-[11px] uppercase text-slate-400 font-bold border-b border-slate-100">
+                                            <tr>
+                                                <th class="pb-3">Name</th>
+                                                <th class="pb-3">Relationship</th>
+                                                <th class="pb-3">Date of Birth</th>
+                                                <th class="pb-3">Gender</th>
+                                                <th class="pb-3">Notes</th>
+                                                <th class="pb-3 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            ${siblings.map((s, idx) => `
+                                                <tr class="hover:bg-slate-50/70 transition">
+                                                    <td class="py-3 font-semibold text-slate-800">${App.escapeHtml(s.name || s.first_name || '—')}</td>
+                                                    <td class="py-3 text-slate-600">${App.escapeHtml(s.relationship || 'Sibling')}</td>
+                                                    <td class="py-3 text-slate-600 tabular-nums">${App.escapeHtml(s.date_of_birth || '—')}</td>
+                                                    <td class="py-3 text-slate-600">${App.escapeHtml(s.gender || '—')}</td>
+                                                    <td class="py-3 text-slate-500">${App.escapeHtml(s.notes || '—')}</td>
+                                                    <td class="py-3 text-right">
+                                                        <button onclick="App.deleteSibling('${client.id}', ${idx})" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition" title="Delete">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+
+                    <!-- SECTION G: Epouse (Spouse) -->
+                    <div id="section-G" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">G</span>
+                                <div>
+                                    <h3 class="text-base font-bold text-slate-900">Epouse</h3>
+                                    <p class="text-xs text-slate-500">Spouse details</p>
+                                </div>
                             </div>
                             <div>
-                                ${isEditing('sectionF') ? `
+                                ${isEditing('sectionG') ? `
                                     <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                            Cancel
-                                        </button>
-                                        <button id="saveSectionF-btn" onclick="App.saveProfileSection('${client.id}', 'sectionF')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-sm flex items-center gap-1">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                            Save
-                                        </button>
+                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                        <button id="saveSectionG-btn" onclick="App.saveProfileSection('${client.id}', 'sectionG')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
                                     </div>
                                 ` : `
-                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionF')" class="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
+                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionG')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        Edit
+                                        Edit Spouse
                                     </button>
                                 `}
                             </div>
                         </div>
 
                         <div class="p-6">
-                            ${isEditing('sectionF') ? `
-                                <div class="space-y-4">
+                            ${isEditing('sectionG') ? `
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Additional Notes</label>
-                                        <textarea id="secF-notes" rows="3" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="General observations or reminders">${App.escapeHtml(addInfo.notes || '')}</textarea>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Spouse Full Name</label>
+                                        <input type="text" id="secG-name" value="${App.escapeHtml(epouse.name || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Important Dates</label>
-                                        <input type="text" id="secF-important_dates" value="${App.escapeHtml(addInfo.important_dates || '')}" placeholder="e.g. Next court hearing: 15/12/2026" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Maiden Name</label>
+                                        <input type="text" id="secG-maiden_name" value="${App.escapeHtml(epouse.maiden_name || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Custom Fields / Other Details</label>
-                                        <textarea id="secF-other_details" rows="2" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Any specific requirements or flexible custom info">${App.escapeHtml(addInfo.other_details || '')}</textarea>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
+                                        <input type="date" id="secG-date_of_birth" value="${epouse.date_of_birth ? epouse.date_of_birth.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Marriage Date</label>
+                                        <input type="date" id="secG-marriage_date" value="${epouse.marriage_date ? epouse.marriage_date.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Marriage Place</label>
+                                        <input type="text" id="secG-marriage_place" value="${App.escapeHtml(epouse.marriage_place || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Nationality</label>
+                                        <input type="text" id="secG-nationality" value="${App.escapeHtml(epouse.nationality || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
+                                    </div>
+                                    <div class="md:col-span-3">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Notes</label>
+                                        <textarea id="secG-notes" rows="2" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">${App.escapeHtml(epouse.notes || '')}</textarea>
                                     </div>
                                 </div>
                             ` : `
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div class="md:col-span-2">
-                                        ${renderField('Additional Notes', addInfo.notes)}
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+                                    ${renderField('Spouse Name', epouse.name)}
+                                    ${renderField('Maiden Name', epouse.maiden_name)}
+                                    ${renderField('Date of Birth', epouse.date_of_birth)}
+                                    ${renderField('Marriage Date', epouse.marriage_date)}
+                                    ${renderField('Marriage Place', epouse.marriage_place)}
+                                    ${renderField('Nationality', epouse.nationality)}
+                                    <div class="col-span-2 md:col-span-3">
+                                        ${renderField('Notes', epouse.notes)}
                                     </div>
-                                    ${renderField('Important Dates', addInfo.important_dates)}
-                                    ${renderField('Custom Fields / Other Details', addInfo.other_details)}
                                 </div>
                             `}
                         </div>
                     </div>
 
-                    <!-- CLIENT FILES SECTION (Requirement 7) -->
-                    <div id="profile-files-section" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <!-- SECTION H: Kids -->
+                    <div id="section-H" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">H</span>
+                                <div>
+                                    <h3 class="text-base font-bold text-slate-900">Kids</h3>
+                                    <p class="text-xs text-slate-500">Children of the client</p>
+                                </div>
+                            </div>
+                            <button onclick="App.openAddKidModal('${client.id}')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition shadow-xs flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                Add Child
+                            </button>
+                        </div>
+
+                        <div class="p-6">
+                            ${kids.length === 0 ? `
+                                <div class="text-center py-6 text-slate-400 text-xs">
+                                    No children recorded for this client.
+                                </div>
+                            ` : `
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left text-xs">
+                                        <thead class="text-[11px] uppercase text-slate-400 font-bold border-b border-slate-100">
+                                            <tr>
+                                                <th class="pb-3">Name</th>
+                                                <th class="pb-3">Date of Birth</th>
+                                                <th class="pb-3">Gender</th>
+                                                <th class="pb-3">Place of Birth</th>
+                                                <th class="pb-3">Notes</th>
+                                                <th class="pb-3 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            ${kids.map((k, idx) => `
+                                                <tr class="hover:bg-slate-50/70 transition">
+                                                    <td class="py-3 font-semibold text-slate-800">${App.escapeHtml(k.name || '—')}</td>
+                                                    <td class="py-3 text-slate-600 tabular-nums">${App.escapeHtml(k.date_of_birth || '—')}</td>
+                                                    <td class="py-3 text-slate-600">${App.escapeHtml(k.gender || '—')}</td>
+                                                    <td class="py-3 text-slate-600">${App.escapeHtml(k.place_of_birth || '—')}</td>
+                                                    <td class="py-3 text-slate-500">${App.escapeHtml(k.notes || '—')}</td>
+                                                    <td class="py-3 text-right">
+                                                        <button onclick="App.deleteKid('${client.id}', ${idx})" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition" title="Delete">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+
+                    <!-- CLIENT FILES SECTION (Preserved) -->
+                    <div id="profile-files-section" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
@@ -1730,7 +2278,7 @@ const Components = {
                                 </div>
                             </div>
                             <div>
-                                <label for="clientFilesInput" class="cursor-pointer inline-flex items-center gap-2 bg-blue-600 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 hover:shadow-sm transition">
+                                <label for="clientFilesInput" class="cursor-pointer inline-flex items-center gap-2 bg-blue-600 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 hover:shadow-xs transition">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                                     Add Files
                                 </label>
@@ -1745,7 +2293,7 @@ const Components = {
                             </div>
                         </div>
 
-                        <!-- Upload Drop Zone & Progress Area -->
+                        <!-- Upload Drop Zone -->
                         <div 
                             id="clientFileDropZone"
                             ondragover="event.preventDefault(); this.classList.add('border-blue-500', 'bg-blue-50/40')"
@@ -1838,11 +2386,110 @@ const Components = {
         <div id="filePreviewModalContainer"></div>
         <!-- Global Confirm Modal Container -->
         <div id="ledgerConfirmModalContainer"></div>
+        <!-- Family Item Modal Container -->
+        <div id="familyModalContainer"></div>
+        `;
+    },
+
+    SiblingModal: (clientId) => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        return `
+        <div id="siblingModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" onclick="if(event.target === this) App.closeSiblingModal()">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200" onclick="event.stopPropagation()">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="text-sm font-bold text-slate-900">Add Sibling</h3>
+                    <button onclick="App.closeSiblingModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <form onsubmit="event.preventDefault(); App.saveSibling('${clientId}');" class="p-5 space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Sibling Full Name *</label>
+                        <input type="text" id="siblingModalName" required placeholder="Full name" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Relationship</label>
+                            <select id="siblingModalRel" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
+                                <option value="Brother">Brother</option>
+                                <option value="Sister">Sister</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
+                            <select id="siblingModalGender" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
+                        <input type="date" id="siblingModalDob" max="${todayStr}" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Notes / Location</label>
+                        <input type="text" id="siblingModalNotes" placeholder="Country or residence" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
+                    </div>
+                    <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+                        <button type="button" onclick="App.closeSiblingModal()" class="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                        <button type="submit" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs">Add Sibling</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        `;
+    },
+
+    KidModal: (clientId) => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        return `
+        <div id="kidModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" onclick="if(event.target === this) App.closeKidModal()">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200" onclick="event.stopPropagation()">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="text-sm font-bold text-slate-900">Add Child</h3>
+                    <button onclick="App.closeKidModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <form onsubmit="event.preventDefault(); App.saveKid('${clientId}');" class="p-5 space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Child Full Name *</label>
+                        <input type="text" id="kidModalName" required placeholder="Child's full name" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
+                            <select id="kidModalGender" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
+                            <input type="date" id="kidModalDob" max="${todayStr}" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Place of Birth</label>
+                        <input type="text" id="kidModalPob" placeholder="City of birth" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Notes</label>
+                        <input type="text" id="kidModalNotes" placeholder="Additional details" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
+                    </div>
+                    <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+                        <button type="button" onclick="App.closeKidModal()" class="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                        <button type="submit" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs">Add Child</button>
+                    </div>
+                </form>
+            </div>
+        </div>
         `;
     },
 
     FilePreviewModal: (title, previewContent) => `
-        <div id="filePreviewModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm" onclick="if(event.target === this) App.closeFilePreview()">
+        <div id="filePreviewModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs" onclick="if(event.target === this) App.closeFilePreview()">
             <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200" onclick="event.stopPropagation()">
                 <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                     <h3 class="text-sm font-bold text-slate-900 truncate pr-4">${App.escapeHtml(title)}</h3>
@@ -1858,7 +2505,7 @@ const Components = {
     `,
 
     DeleteConfirmModal: (title, message, onConfirmCall) => `
-        <div id="ledgerConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" onclick="if(event.target === this) App.closeLedgerConfirmModal()">
+        <div id="ledgerConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs" onclick="if(event.target === this) App.closeLedgerConfirmModal()">
             <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden border border-slate-200 p-6" onclick="event.stopPropagation()">
                 <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -1867,11 +2514,12 @@ const Components = {
                 <p class="text-xs text-slate-500 mb-5">${App.escapeHtml(message)}</p>
                 <div class="flex justify-end gap-3">
                     <button onclick="App.closeLedgerConfirmModal()" class="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition">Cancel</button>
-                    <button onclick="${onConfirmCall}" class="px-4 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition">Delete</button>
+                    <button onclick="${onConfirmCall}" class="px-4 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-xs transition">Delete</button>
                 </div>
             </div>
         </div>
     `
+
 };
 
 if (typeof module !== 'undefined' && module.exports) {
