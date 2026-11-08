@@ -673,3 +673,179 @@ def test_transcription_pipeline_does_not_populate_ledger():
     clients = db.query(Client).all()
     assert len(clients) == 0
     db.close()
+
+
+def test_client_details_header_six_fields():
+    """
+    Client Details header strictly handles the six fields:
+    Ref #, Date*, Service Type*, Priority, Status, Assigned To.
+    - Ref # is auto-generated (SURNAME + last 4 of phone) and immutable on update.
+    - Date is editable and persisted.
+    - Service Type is required.
+    - Priority defaults to Normal and can be updated to Urgent/Critical/etc.
+    - Status defaults to Inwarded and can be updated to 'Ready to delivered'.
+    - Assigned To is dynamic and links to eligible users.
+    - Changes reflect in GET /api/ledger/clients (Ledger grid).
+    """
+    users = client.get("/api/ledger/users").json()
+    u2_id = next(u["id"] for u in users if u["username"] == "testuser2")
+
+    # 1. Create client
+    today_str = date.today().isoformat()
+    create_res = client.post("/api/ledger/clients", json=valid_client_payload(
+        surname="SRIKARAN",
+        first_name="Jean",
+        phone_number="0763796000",
+        service_type="OFPRA",
+        priority="Normal",
+        status="Inwarded",
+        client_date=today_str,
+        assigned_to_id=None
+    ))
+    assert create_res.status_code == 201
+    c = create_res.json()
+    client_id = c["id"]
+    assert c["reference_number"] == "SRIKARAN6000"
+    assert c["client_date"] == today_str
+    assert c["service_type"] == "OFPRA"
+    assert c["priority"] == "Normal"
+    assert c["status"] == "Inwarded"
+    assert c["assigned_to_id"] is None
+    assert c["assigned_to_name"] is None
+
+    # 2. Update all editable header fields
+    new_date = "2026-11-08"
+    patch_res = client.patch(f"/api/ledger/clients/{client_id}", json={
+        "client_date": new_date,
+        "service_type": "RECOURS",
+        "priority": "Very Urgent",
+        "status": "Ready to delivered",
+        "assigned_to_id": u2_id,
+        "reference_number": "ATTEMPTED_OVERWRITE"
+    })
+    assert patch_res.status_code == 200
+    updated = patch_res.json()
+    assert updated["reference_number"] == "SRIKARAN6000"  # Unchanged!
+    assert updated["client_date"] == new_date
+    assert updated["service_type"] == "RECOURS"
+    assert updated["priority"] == "Very Urgent"
+    assert updated["status"] == "Ready to delivered"
+    assert updated["assigned_to_id"] == u2_id
+    assert updated["assigned_to_name"] == "testuser2"
+
+    # 3. Verify reflected in Ledger grid listing
+    grid_res = client.get("/api/ledger/clients")
+    assert grid_res.status_code == 200
+    items = grid_res.json()["items"]
+    match = next(item for item in items if item["id"] == client_id)
+    assert match["reference_number"] == "SRIKARAN6000"
+    assert match["client_date"] == new_date
+    assert match["service_type"] == "RECOURS"
+    assert match["priority"] == "Very Urgent"
+    assert match["status"] == "Ready to delivered"
+    assert match["assigned_to_name"] == "testuser2"
+
+    # 4. Service Type is required (cannot patch to invalid)
+    bad_st_res = client.patch(f"/api/ledger/clients/{client_id}", json={"service_type": "INVALID_TYPE"})
+    assert bad_st_res.status_code == 422
+
+
+def test_final_client_details_structure_and_validations():
+    """
+    Test final Client Details specifications:
+    - 6-field workflow header: Ref #, Date, Service Type, Priority, Status, Assigned To.
+    - Full Name format: 'SURNAME Firstname' (e.g., SRIKARAN Sivakumar).
+    - Section A (Personal Info), Section B (Service Info), Section C (Contact Info).
+    - Date ISO storage and future-date prohibition.
+    - APS 10-digit validation and To >= From check.
+    """
+    users = client.get("/api/ledger/users").json()
+    u1_id = users[0]["id"]
+
+    # 1. Create client with exact structure
+    payload = valid_client_payload(
+        surname="srikaran", # lowercase entered -> must become uppercase SRIKARAN
+        first_name="Sivakumar",
+        phone_number="0763796000",
+        service_type="OFPRA",
+        priority="Urgent",
+        status="Ready to delivered",
+        client_date="2026-11-08",
+        assigned_to_id=u1_id,
+        date_of_birth="1990-05-15",
+        place_of_birth="Jaffna",
+        birth_place="Northern Province",
+        sp="2020-01-01",
+        ef="2021-06-01",
+        numero_ofpra="12345678",
+        numero_aps="1234567890",
+        delivered_by="Prefecture de Police",
+        from_date="2022-01-01",
+        to_date="2023-01-01",
+        address="10 Rue de Paris",
+        ville="Paris",
+        postal_code="75001"
+    )
+    res = client.post("/api/ledger/clients", json=payload)
+    assert res.status_code == 201
+    c = res.json()
+    client_id = c["id"]
+
+    # Full name format: SURNAME Firstname
+    assert c["surname"] == "SRIKARAN"
+    assert c["first_name"] == "Sivakumar"
+    assert c["full_name"] == "SRIKARAN Sivakumar"
+    assert c["reference_number"] == "SRIKARAN6000"
+
+    # Header 6 fields
+    assert c["client_date"] == "2026-11-08"
+    assert c["service_type"] == "OFPRA"
+    assert c["priority"] == "Urgent"
+    assert c["status"] == "Ready to delivered"
+    assert c["assigned_to_id"] == u1_id
+
+    # Section A fields
+    assert c["date_of_birth"] == "1990-05-15"
+    assert c["place_of_birth"] == "Jaffna"
+    assert c["birth_place"] == "Northern Province"
+    assert c["sp"] == "2020-01-01"
+    assert c["ef"] == "2021-06-01"
+
+    # Section B fields
+    assert c["numero_ofpra"] == "12345678"
+    assert c["numero_aps"] == "1234567890"
+    assert c["delivered_by"] == "Prefecture de Police"
+    assert c["from_date"] == "2022-01-01"
+    assert c["to_date"] == "2023-01-01"
+
+    # Section C fields
+    assert c["phone_number"] == "0763796000"
+    assert c["address"] == "10 Rue de Paris"
+    assert c["ville"] == "Paris"
+    assert c["postal_code"] == "75001"
+
+    # 2. Section B validations: invalid APS length
+    bad_aps = client.patch(f"/api/ledger/clients/{client_id}", json={"numero_aps": "123"})
+    assert bad_aps.status_code == 422
+
+    # 3. Section B validations: To < From prohibited
+    bad_dates = client.patch(f"/api/ledger/clients/{client_id}", json={
+        "from_date": "2023-01-01",
+        "to_date": "2022-01-01"
+    })
+    assert bad_dates.status_code == 422
+
+    # 4. Future date prohibited on Section A DOB
+    future_dob = client.patch(f"/api/ledger/clients/{client_id}", json={"date_of_birth": "2099-01-01"})
+    assert future_dob.status_code == 422
+
+    # 5. Derived Full Name updates automatically when surname or first_name changed
+    name_patch = client.patch(f"/api/ledger/clients/{client_id}", json={
+        "surname": "PERERA",
+        "first_name": "Kamal"
+    })
+    assert name_patch.status_code == 200
+    updated_name = name_patch.json()
+    assert updated_name["full_name"] == "PERERA Kamal"
+    # Ref number remains immutable
+    assert updated_name["reference_number"] == "SRIKARAN6000"

@@ -18,6 +18,9 @@ from app.schemas import (
     ClientListResponse,
     ClientFileResponse,
     UserAssigneeResponse,
+    SERVICE_TYPES,
+    PRIORITIES,
+    STATUSES,
 )
 from app.services.storage import storage_service
 
@@ -224,6 +227,21 @@ def validate_email(val: Optional[str]) -> Optional[str]:
             detail="Invalid email address format."
         )
     return cleaned
+
+
+def validate_enum_choice(val: Optional[str], valid_choices: list, field_name: str, required: bool = False) -> Optional[str]:
+    """Validate dropdown choice against standard choices."""
+    if not val or not str(val).strip():
+        if required:
+            raise HTTPException(status_code=422, detail=f"{field_name} is required.")
+        return None
+    val_clean = str(val).strip()
+    if val_clean not in valid_choices:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid {field_name}. Must be one of: {', '.join(valid_choices)}"
+        )
+    return val_clean
 
 
 def sanitize_html(val: Optional[str]) -> Optional[str]:
@@ -612,10 +630,35 @@ def update_client(
         client.remarks = sanitize_html(data_dict["remarks"])
         del data_dict["remarks"]
 
-    # 5. Header Date validation
+    # 5. Header fields validation
     if "client_date" in data_dict:
-        client.client_date = validate_date(data_dict["client_date"], "Date", required=False, allow_future=True)
+        client.client_date = validate_date(data_dict["client_date"], "Date", required=True, allow_future=True)
         del data_dict["client_date"]
+
+    if "service_type" in data_dict:
+        client.service_type = validate_enum_choice(data_dict["service_type"], SERVICE_TYPES, "Service Type", required=True)
+        del data_dict["service_type"]
+
+    if "priority" in data_dict:
+        client.priority = validate_enum_choice(data_dict["priority"], PRIORITIES, "Priority", required=False) or "Normal"
+        del data_dict["priority"]
+
+    if "status" in data_dict:
+        client.status = validate_enum_choice(data_dict["status"], STATUSES, "Status", required=False) or "Inwarded"
+        del data_dict["status"]
+
+    if "assigned_to_id" in data_dict:
+        assigned_id = data_dict["assigned_to_id"]
+        if assigned_id:
+            assigned_user = db.query(User).filter(User.id == assigned_id).first()
+            if not assigned_user:
+                raise HTTPException(status_code=400, detail="Assigned user not found.")
+            client.assigned_to = assigned_user
+            client.assigned_to_id = assigned_id
+        else:
+            client.assigned_to = None
+            client.assigned_to_id = None
+        del data_dict["assigned_to_id"]
 
     # 6. Structured JSON dictionary updates
     for json_col in ["parents_details", "epouse", "identification_info", "case_info", "background_info", "additional_info"]:

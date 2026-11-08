@@ -945,6 +945,16 @@ const Components = {
         return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">${App.escapeHtml(st)}</span>`;
     },
 
+    formatDisplayDate: (dateStr) => {
+        if (!dateStr || dateStr === '—') return '—';
+        const clean = String(dateStr).split('T')[0];
+        const parts = clean.split('-');
+        if (parts.length === 3 && parts[0].length === 4) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return dateStr;
+    },
+
     LedgerView: (clients = [], totalCount = 0, searchQuery = '', loading = false) => {
         const countText = totalCount === 1 ? '1 client' : `${totalCount} clients`;
         const serviceTypes = ["CONSEIL", "OFPRA", "RECOURS", "TA", "REEXAIN", "RERECOURS"];
@@ -1278,7 +1288,7 @@ const Components = {
                 ${App.escapeHtml(assignedName)}
             </td>
             <td class="px-5 py-4 text-slate-600 text-xs tabular-nums whitespace-nowrap">
-                ${App.escapeHtml(dateVal)}
+                ${App.escapeHtml(Components.formatDisplayDate(dateVal))}
             </td>
             <td class="px-5 py-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
                 <div class="relative inline-block text-left">
@@ -1485,11 +1495,11 @@ const Components = {
                         </div>
                     </div>
 
-                    <!-- SECTION B: Identification / OFPRA Information -->
+                    <!-- SECTION B: Service Information -->
                     <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-4">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">B</span>
-                            <h4 class="text-sm font-bold text-slate-900">Identification / OFPRA Information</h4>
+                            <h4 class="text-sm font-bold text-slate-900">Service Information</h4>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
@@ -1553,45 +1563,6 @@ const Components = {
                         </div>
                     </div>
 
-                    <!-- SECTION D: Remarks (Rich Text) -->
-                    <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-3">
-                        <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">D</span>
-                            <h4 class="text-sm font-bold text-slate-900">Remarks</h4>
-                        </div>
-                        ${Components.RichTextEditor('newClientRemarks', '', 'Add remarks, case notes, or special requirements...')}
-                    </div>
-
-                    <!-- SECTIONS E-H: Family Information (Optional) -->
-                    <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-4">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">E-H</span>
-                                <h4 class="text-sm font-bold text-slate-900">Family Information (Optional)</h4>
-                            </div>
-                            <span class="text-xs text-slate-400">Optional — Can also be added later</span>
-                        </div>
-
-                        <!-- Section E: Parents Details -->
-                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
-                            <span class="text-xs font-bold text-slate-700">Section E: Parents Details</span>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <input type="text" id="newClientFatherName" placeholder="Father's Full Name" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
-                                <input type="text" id="newClientMotherName" placeholder="Mother's Full Name" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
-                            </div>
-                        </div>
-
-                        <!-- Section G: Epouse Details -->
-                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
-                            <span class="text-xs font-bold text-slate-700">Section G: Epouse (Spouse)</span>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <input type="text" id="newClientSpouseName" placeholder="Spouse Full Name" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
-                                <input type="text" id="newClientSpouseMaiden" placeholder="Maiden Name" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
-                                <input type="date" id="newClientSpouseDob" placeholder="DOB" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Modal Actions -->
                     <div class="pt-4 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white py-3">
                         <button 
@@ -1634,12 +1605,6 @@ const Components = {
         const users = App.state.assignableUsers || [];
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // Family records
-        const parents = client.parents_details || {};
-        const siblings = client.siblings || [];
-        const epouse = client.epouse || {};
-        const kids = client.kids || [];
-
         return `
         <div class="pl-64 min-h-screen bg-slate-50">
             <div class="max-w-5xl mx-auto p-8">
@@ -1665,100 +1630,151 @@ const Components = {
                     </div>
                 </div>
 
-                <!-- Client Header Card -->
-                <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6 mb-6">
-                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-5 border-b border-slate-100">
-                        <div class="flex items-center gap-4">
-                            <div class="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-2xl font-bold uppercase shadow-sm flex-shrink-0">
-                                ${(client.first_name || 'C')[0]}
-                            </div>
-                            <div>
-                                <div class="flex items-center gap-3 flex-wrap">
-                                    <h2 class="text-2xl font-bold text-slate-900 tracking-tight">${App.escapeHtml(fullName)}</h2>
-                                    ${Components.getRefBadge(client.reference_number)}
-                                </div>
-                                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2">
-                                    ${client.phone_number ? `<span class="flex items-center gap-1 font-semibold text-slate-700 tabular-nums"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>${App.escapeHtml(client.phone_number)}</span>` : ''}
-                                    ${client.secondary_phone ? `<span class="flex items-center gap-1 tabular-nums text-slate-500">Sec: ${App.escapeHtml(client.secondary_phone)}</span>` : ''}
-                                    ${client.email ? `<span class="flex items-center gap-1"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>${App.escapeHtml(client.email)}</span>` : ''}
-                                    ${client.date_of_birth ? `<span class="flex items-center gap-1 tabular-nums">DOB: ${App.escapeHtml(client.date_of_birth)}</span>` : ''}
-                                </div>
-                            </div>
-                        </div>
+                <!-- Profile Header Title (SURNAME Firstname format) -->
+                <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900 tracking-tight">${App.escapeHtml(fullName)}</h2>
+                        <p class="text-xs text-slate-500 mt-1">Client Record Details</p>
+                    </div>
+                </div>
 
-                        <div class="flex items-center gap-3">
+                <!-- Client Header Card (ONLY the 6 required header fields) -->
+                <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden mb-6">
+                    <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            </span>
+                            <h3 class="text-base font-bold text-slate-900">Header</h3>
+                        </div>
+                        <div>
                             ${isEditing('header') ? `
-                                <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
-                                <button id="saveHeader-btn" onclick="App.saveProfileSection('${client.id}', 'header')" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                    <button id="saveHeader-btn" onclick="App.saveProfileSection('${client.id}', 'header')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
+                                </div>
                             ` : `
                                 <button onclick="App.startProfileSectionEdit('${client.id}', 'header')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                    Edit Workflow
-                                </button>
-                                <button onclick="document.getElementById('profile-files-section').scrollIntoView({behavior: 'smooth'})" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition flex items-center gap-1.5">
-                                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                                    Files (${files.length})
+                                    Edit
                                 </button>
                             `}
                         </div>
                     </div>
 
-                    <!-- Workflow badges row -->
-                    <div class="pt-4">
+                    <div class="p-6">
                         ${isEditing('header') ? `
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+                            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                                <!-- 1. Ref # (Non-editable) -->
                                 <div>
-                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Date</label>
-                                    <input type="date" id="secHdr-date" value="${client.client_date || (client.created_at ? client.created_at.split('T')[0] : '')}" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Ref #</label>
+                                    <input 
+                                        type="text" 
+                                        value="${App.escapeHtml(client.reference_number || '—')}" 
+                                        disabled 
+                                        class="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-100 border border-slate-300 rounded-lg text-slate-600 cursor-not-allowed"
+                                    >
                                 </div>
+
+                                <!-- 2. Date* (Date Picker, Editable, DD/MM/YYYY) -->
                                 <div>
-                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Service Type</label>
-                                    <select id="secHdr-service_type" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
-                                        <option value="">None</option>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Date <span class="text-red-500">*</span></label>
+                                    <input 
+                                        type="date" 
+                                        id="secHdr-date" 
+                                        required 
+                                        value="${client.client_date ? client.client_date.split('T')[0] : todayStr}" 
+                                        class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                    >
+                                </div>
+
+                                <!-- 3. Service Type* (Combo Box) -->
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Service Type <span class="text-red-500">*</span></label>
+                                    <select 
+                                        id="secHdr-service_type" 
+                                        required 
+                                        class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                    >
+                                        <option value="">Select Service Type</option>
                                         ${serviceTypes.map(st => `<option value="${st}" ${client.service_type === st ? 'selected' : ''}>${st}</option>`).join('')}
                                     </select>
                                 </div>
+
+                                <!-- 4. Priority (Combo Box, default Normal) -->
                                 <div>
-                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Priority</label>
-                                    <select id="secHdr-priority" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
-                                        ${priorities.map(p => `<option value="${p}" ${client.priority === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Priority</label>
+                                    <select 
+                                        id="secHdr-priority" 
+                                        class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                    >
+                                        ${priorities.map(p => `<option value="${p}" ${(client.priority || 'Normal') === p ? 'selected' : ''}>${p}</option>`).join('')}
                                     </select>
                                 </div>
+
+                                <!-- 5. Status (Combo Box, default Inwarded) -->
                                 <div>
-                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Status</label>
-                                    <select id="secHdr-status" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
-                                        ${statuses.map(s => `<option value="${s}" ${client.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+                                    <select 
+                                        id="secHdr-status" 
+                                        class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                    >
+                                        ${statuses.map(s => `<option value="${s}" ${(client.status || 'Inwarded') === s ? 'selected' : ''}>${s}</option>`).join('')}
                                     </select>
                                 </div>
-                                <div class="md:col-span-4">
-                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Assigned To</label>
-                                    <select id="secHdr-assigned_to" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md">
+
+                                <!-- 6. Assigned To (Combo Box) -->
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Assigned To</label>
+                                    <select 
+                                        id="secHdr-assigned_to" 
+                                        class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                    >
                                         <option value="">Unassigned</option>
                                         ${users.map(u => `<option value="${u.id}" ${client.assigned_to_id === u.id ? 'selected' : ''}>${App.escapeHtml(u.username)}</option>`).join('')}
                                     </select>
                                 </div>
                             </div>
                         ` : `
-                            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-                                <div>
-                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Date</span>
-                                    <span class="text-xs font-semibold text-slate-800 tabular-nums">${App.escapeHtml(client.client_date || (client.created_at ? client.created_at.split('T')[0] : '—'))}</span>
+                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                                <!-- 1. Ref # (Auto-generated, Non-editable) -->
+                                <div class="space-y-1">
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Ref #</span>
+                                    ${Components.getRefBadge(client.reference_number)}
                                 </div>
-                                <div>
-                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Service Type</span>
+
+                                <!-- 2. Date* (Date Picker, Editable, display format: DD/MM/YYYY) -->
+                                <div class="space-y-1">
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Date *</span>
+                                    <p class="text-sm font-semibold font-mono text-slate-800 tabular-nums">
+                                        ${Components.formatDisplayDate(client.client_date || (client.created_at ? client.created_at.split('T')[0] : ''))}
+                                    </p>
+                                </div>
+
+                                <!-- 3. Service Type* (Combo Box, Required) -->
+                                <div class="space-y-1">
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Service Type *</span>
                                     ${Components.getServiceTypeBadge(client.service_type)}
                                 </div>
-                                <div>
-                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Priority</span>
-                                    ${Components.getPriorityBadge(client.priority)}
+
+                                <!-- 4. Priority (Combo Box, Default Normal, indication if not Normal) -->
+                                <div class="space-y-1">
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Priority</span>
+                                    ${Components.getPriorityBadge(client.priority || 'Normal')}
                                 </div>
-                                <div>
-                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Status</span>
-                                    ${Components.getStatusBadge(client.status)}
+
+                                <!-- 5. Status (Combo Box, Default Inwarded, indication if Ready to delivered) -->
+                                <div class="space-y-1">
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Status</span>
+                                    ${Components.getStatusBadge(client.status || 'Inwarded')}
                                 </div>
-                                <div>
-                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Assigned To</span>
-                                    <span class="text-xs font-semibold text-slate-800">${App.escapeHtml(client.assigned_to_name || 'Unassigned')}</span>
+
+                                <!-- 6. Assigned To (Combo Box, Eligible users) -->
+                                <div class="space-y-1">
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Assigned To</span>
+                                    <p class="text-sm font-semibold text-slate-800">
+                                        ${client.assigned_to_name ? App.escapeHtml(client.assigned_to_name) : '<span class="text-slate-400 font-normal">—</span>'}
+                                    </p>
                                 </div>
                             </div>
                         `}
@@ -1855,26 +1871,26 @@ const Components = {
                                     ${renderField('Full Name (Derived)', client.full_name)}
                                     ${renderField('Surname', client.surname)}
                                     ${renderField('First Name', client.first_name)}
-                                    ${renderField('Date of Birth', client.date_of_birth)}
+                                    ${renderField('Date of Birth', Components.formatDisplayDate(client.date_of_birth))}
                                     ${renderField('Place of Birth', client.place_of_birth)}
                                     ${renderField('Birth Place', client.birth_place)}
                                     ${renderField('Gender', client.gender)}
                                     ${renderField('Nationality', client.nationality)}
                                     ${renderField('Marital Status', client.marital_status)}
                                     ${renderField('Country', client.personal_country)}
-                                    ${renderField('SP', client.sp)}
-                                    ${renderField('EF', client.ef)}
+                                    ${renderField('SP', Components.formatDisplayDate(client.sp))}
+                                    ${renderField('EF', Components.formatDisplayDate(client.ef))}
                                 </div>
                             `}
                         </div>
                     </div>
 
-                    <!-- SECTION B: Identification / OFPRA Information -->
+                    <!-- SECTION B: Service Information -->
                     <div id="section-B" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">B</span>
-                                <h3 class="text-base font-bold text-slate-900">Identification / OFPRA Information</h3>
+                                <h3 class="text-base font-bold text-slate-900">Service Information</h3>
                             </div>
                             <div>
                                 ${isEditing('sectionB') ? `
@@ -1920,8 +1936,8 @@ const Components = {
                                     ${renderField('Numéro OFPRA', client.numero_ofpra)}
                                     ${renderField('Numéro APS', client.numero_aps)}
                                     ${renderField('Delivered By', client.delivered_by)}
-                                    ${renderField('From', client.from_date)}
-                                    ${renderField('To', client.to_date)}
+                                    ${renderField('From', Components.formatDisplayDate(client.from_date))}
+                                    ${renderField('To', Components.formatDisplayDate(client.to_date))}
                                 </div>
                             `}
                         </div>
@@ -1997,274 +2013,6 @@ const Components = {
                         </div>
                     </div>
 
-                    <!-- SECTION D: Remarks (Rich Text) -->
-                    <div id="section-D" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                            <div class="flex items-center gap-2.5">
-                                <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">D</span>
-                                <h3 class="text-base font-bold text-slate-900">Remarks</h3>
-                            </div>
-                            <div>
-                                ${isEditing('sectionD') ? `
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
-                                        <button id="saveSectionD-btn" onclick="App.saveProfileSection('${client.id}', 'sectionD')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
-                                    </div>
-                                ` : `
-                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionD')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        Edit
-                                    </button>
-                                `}
-                            </div>
-                        </div>
-
-                        <div class="p-6">
-                            ${isEditing('sectionD') ? `
-                                ${Components.RichTextEditor('secD-remarks', client.remarks || '', 'Edit remarks and formatted notes...')}
-                            ` : `
-                                <div class="prose prose-sm max-w-none text-slate-800 bg-slate-50/50 p-4 rounded-lg border border-slate-100 min-h-[60px]">
-                                    ${client.remarks ? client.remarks : '<span class="text-slate-400 font-normal">—</span>'}
-                                </div>
-                            `}
-                        </div>
-                    </div>
-
-                    <!-- SECTION E: Parents Details -->
-                    <div id="section-E" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                            <div class="flex items-center gap-2.5">
-                                <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">E</span>
-                                <h3 class="text-base font-bold text-slate-900">Parents Details</h3>
-                            </div>
-                            <div>
-                                ${isEditing('sectionE') ? `
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
-                                        <button id="saveSectionE-btn" onclick="App.saveProfileSection('${client.id}', 'sectionE')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
-                                    </div>
-                                ` : `
-                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionE')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        Edit
-                                    </button>
-                                `}
-                            </div>
-                        </div>
-
-                        <div class="p-6">
-                            ${isEditing('sectionE') ? `
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Father's Name</label>
-                                        <input type="text" id="secE-father_name" value="${App.escapeHtml(parents.father_name || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Mother's Name</label>
-                                        <input type="text" id="secE-mother_name" value="${App.escapeHtml(parents.mother_name || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Parents Notes / Address</label>
-                                        <textarea id="secE-notes" rows="2" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">${App.escapeHtml(parents.notes || '')}</textarea>
-                                    </div>
-                                </div>
-                            ` : `
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    ${renderField("Father's Name", parents.father_name)}
-                                    ${renderField("Mother's Name", parents.mother_name)}
-                                    <div class="md:col-span-2">
-                                        ${renderField("Notes / Address", parents.notes)}
-                                    </div>
-                                </div>
-                            `}
-                        </div>
-                    </div>
-
-                    <!-- SECTION F: Siblings -->
-                    <div id="section-F" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                            <div class="flex items-center gap-2.5">
-                                <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">F</span>
-                                <div>
-                                    <h3 class="text-base font-bold text-slate-900">Siblings</h3>
-                                    <p class="text-xs text-slate-500">Brothers and sisters of the client</p>
-                                </div>
-                            </div>
-                            <button onclick="App.openAddSiblingModal('${client.id}')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition shadow-xs flex items-center gap-1.5">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                Add Sibling
-                            </button>
-                        </div>
-
-                        <div class="p-6">
-                            ${siblings.length === 0 ? `
-                                <div class="text-center py-6 text-slate-400 text-xs">
-                                    No siblings recorded for this client.
-                                </div>
-                            ` : `
-                                <div class="overflow-x-auto">
-                                    <table class="w-full text-left text-xs">
-                                        <thead class="text-[11px] uppercase text-slate-400 font-bold border-b border-slate-100">
-                                            <tr>
-                                                <th class="pb-3">Name</th>
-                                                <th class="pb-3">Relationship</th>
-                                                <th class="pb-3">Date of Birth</th>
-                                                <th class="pb-3">Gender</th>
-                                                <th class="pb-3">Notes</th>
-                                                <th class="pb-3 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-100">
-                                            ${siblings.map((s, idx) => `
-                                                <tr class="hover:bg-slate-50/70 transition">
-                                                    <td class="py-3 font-semibold text-slate-800">${App.escapeHtml(s.name || s.first_name || '—')}</td>
-                                                    <td class="py-3 text-slate-600">${App.escapeHtml(s.relationship || 'Sibling')}</td>
-                                                    <td class="py-3 text-slate-600 tabular-nums">${App.escapeHtml(s.date_of_birth || '—')}</td>
-                                                    <td class="py-3 text-slate-600">${App.escapeHtml(s.gender || '—')}</td>
-                                                    <td class="py-3 text-slate-500">${App.escapeHtml(s.notes || '—')}</td>
-                                                    <td class="py-3 text-right">
-                                                        <button onclick="App.deleteSibling('${client.id}', ${idx})" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition" title="Delete">
-                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            `}
-                        </div>
-                    </div>
-
-                    <!-- SECTION G: Epouse (Spouse) -->
-                    <div id="section-G" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                            <div class="flex items-center gap-2.5">
-                                <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">G</span>
-                                <div>
-                                    <h3 class="text-base font-bold text-slate-900">Epouse</h3>
-                                    <p class="text-xs text-slate-500">Spouse details</p>
-                                </div>
-                            </div>
-                            <div>
-                                ${isEditing('sectionG') ? `
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
-                                        <button id="saveSectionG-btn" onclick="App.saveProfileSection('${client.id}', 'sectionG')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
-                                    </div>
-                                ` : `
-                                    <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionG')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        Edit Spouse
-                                    </button>
-                                `}
-                            </div>
-                        </div>
-
-                        <div class="p-6">
-                            ${isEditing('sectionG') ? `
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Spouse Full Name</label>
-                                        <input type="text" id="secG-name" value="${App.escapeHtml(epouse.name || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Maiden Name</label>
-                                        <input type="text" id="secG-maiden_name" value="${App.escapeHtml(epouse.maiden_name || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
-                                        <input type="date" id="secG-date_of_birth" value="${epouse.date_of_birth ? epouse.date_of_birth.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Marriage Date</label>
-                                        <input type="date" id="secG-marriage_date" value="${epouse.marriage_date ? epouse.marriage_date.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Marriage Place</label>
-                                        <input type="text" id="secG-marriage_place" value="${App.escapeHtml(epouse.marriage_place || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Nationality</label>
-                                        <input type="text" id="secG-nationality" value="${App.escapeHtml(epouse.nationality || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
-                                    </div>
-                                    <div class="md:col-span-3">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Notes</label>
-                                        <textarea id="secG-notes" rows="2" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">${App.escapeHtml(epouse.notes || '')}</textarea>
-                                    </div>
-                                </div>
-                            ` : `
-                                <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    ${renderField('Spouse Name', epouse.name)}
-                                    ${renderField('Maiden Name', epouse.maiden_name)}
-                                    ${renderField('Date of Birth', epouse.date_of_birth)}
-                                    ${renderField('Marriage Date', epouse.marriage_date)}
-                                    ${renderField('Marriage Place', epouse.marriage_place)}
-                                    ${renderField('Nationality', epouse.nationality)}
-                                    <div class="col-span-2 md:col-span-3">
-                                        ${renderField('Notes', epouse.notes)}
-                                    </div>
-                                </div>
-                            `}
-                        </div>
-                    </div>
-
-                    <!-- SECTION H: Kids -->
-                    <div id="section-H" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                            <div class="flex items-center gap-2.5">
-                                <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">H</span>
-                                <div>
-                                    <h3 class="text-base font-bold text-slate-900">Kids</h3>
-                                    <p class="text-xs text-slate-500">Children of the client</p>
-                                </div>
-                            </div>
-                            <button onclick="App.openAddKidModal('${client.id}')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition shadow-xs flex items-center gap-1.5">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                Add Child
-                            </button>
-                        </div>
-
-                        <div class="p-6">
-                            ${kids.length === 0 ? `
-                                <div class="text-center py-6 text-slate-400 text-xs">
-                                    No children recorded for this client.
-                                </div>
-                            ` : `
-                                <div class="overflow-x-auto">
-                                    <table class="w-full text-left text-xs">
-                                        <thead class="text-[11px] uppercase text-slate-400 font-bold border-b border-slate-100">
-                                            <tr>
-                                                <th class="pb-3">Name</th>
-                                                <th class="pb-3">Date of Birth</th>
-                                                <th class="pb-3">Gender</th>
-                                                <th class="pb-3">Place of Birth</th>
-                                                <th class="pb-3">Notes</th>
-                                                <th class="pb-3 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-100">
-                                            ${kids.map((k, idx) => `
-                                                <tr class="hover:bg-slate-50/70 transition">
-                                                    <td class="py-3 font-semibold text-slate-800">${App.escapeHtml(k.name || '—')}</td>
-                                                    <td class="py-3 text-slate-600 tabular-nums">${App.escapeHtml(k.date_of_birth || '—')}</td>
-                                                    <td class="py-3 text-slate-600">${App.escapeHtml(k.gender || '—')}</td>
-                                                    <td class="py-3 text-slate-600">${App.escapeHtml(k.place_of_birth || '—')}</td>
-                                                    <td class="py-3 text-slate-500">${App.escapeHtml(k.notes || '—')}</td>
-                                                    <td class="py-3 text-right">
-                                                        <button onclick="App.deleteKid('${client.id}', ${idx})" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition" title="Delete">
-                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            `}
-                        </div>
-                    </div>
-
                     <!-- CLIENT FILES SECTION (Preserved) -->
                     <div id="profile-files-section" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -2331,7 +2079,7 @@ const Components = {
                                             ${files.map(f => {
                                                 const ext = f.original_filename.split('.').pop().toLowerCase();
                                                 const sizeStr = App.formatFileSize(f.file_size_bytes);
-                                                const uploadDate = f.uploaded_at ? new Date(f.uploaded_at).toLocaleDateString('en-GB') : '—';
+                                                const uploadDate = f.uploaded_at ? Components.formatDisplayDate(f.uploaded_at) : '—';
                                                 
                                                 return `
                                                 <tr class="hover:bg-slate-50/70 transition">
@@ -2386,105 +2134,6 @@ const Components = {
         <div id="filePreviewModalContainer"></div>
         <!-- Global Confirm Modal Container -->
         <div id="ledgerConfirmModalContainer"></div>
-        <!-- Family Item Modal Container -->
-        <div id="familyModalContainer"></div>
-        `;
-    },
-
-    SiblingModal: (clientId) => {
-        const todayStr = new Date().toISOString().split('T')[0];
-        return `
-        <div id="siblingModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" onclick="if(event.target === this) App.closeSiblingModal()">
-            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200" onclick="event.stopPropagation()">
-                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 class="text-sm font-bold text-slate-900">Add Sibling</h3>
-                    <button onclick="App.closeSiblingModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                <form onsubmit="event.preventDefault(); App.saveSibling('${clientId}');" class="p-5 space-y-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Sibling Full Name *</label>
-                        <input type="text" id="siblingModalName" required placeholder="Full name" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Relationship</label>
-                            <select id="siblingModalRel" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
-                                <option value="Brother">Brother</option>
-                                <option value="Sister">Sister</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
-                            <select id="siblingModalGender" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
-                        <input type="date" id="siblingModalDob" max="${todayStr}" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Notes / Location</label>
-                        <input type="text" id="siblingModalNotes" placeholder="Country or residence" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
-                    </div>
-                    <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
-                        <button type="button" onclick="App.closeSiblingModal()" class="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-                        <button type="submit" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs">Add Sibling</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        `;
-    },
-
-    KidModal: (clientId) => {
-        const todayStr = new Date().toISOString().split('T')[0];
-        return `
-        <div id="kidModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" onclick="if(event.target === this) App.closeKidModal()">
-            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200" onclick="event.stopPropagation()">
-                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 class="text-sm font-bold text-slate-900">Add Child</h3>
-                    <button onclick="App.closeKidModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                <form onsubmit="event.preventDefault(); App.saveKid('${clientId}');" class="p-5 space-y-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Child Full Name *</label>
-                        <input type="text" id="kidModalName" required placeholder="Child's full name" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
-                            <select id="kidModalGender" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
-                            <input type="date" id="kidModalDob" max="${todayStr}" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Place of Birth</label>
-                        <input type="text" id="kidModalPob" placeholder="City of birth" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Notes</label>
-                        <input type="text" id="kidModalNotes" placeholder="Additional details" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
-                    </div>
-                    <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
-                        <button type="button" onclick="App.closeKidModal()" class="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-                        <button type="submit" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs">Add Child</button>
-                    </div>
-                </form>
-            </div>
-        </div>
         `;
     },
 
