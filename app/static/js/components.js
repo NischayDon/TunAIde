@@ -1360,12 +1360,7 @@ const Components = {
                     <!-- 1. Header / Workflow Section -->
                     <div class="p-5 bg-slate-50/60 rounded-xl border border-slate-200 space-y-4">
                         <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                </span>
-                                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-900">Header & Workflow</h4>
-                            </div>
+                            <div></div>
                             <span class="text-[11px] text-blue-600 font-medium">Ref # auto-generated (SURNAME + phone last 4 digits)</span>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1667,11 +1662,8 @@ const Components = {
                 <!-- 1. Header Card (ONLY the 6 required header fields) -->
                 <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden mb-6">
                     <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <div class="flex items-center gap-2.5">
-                            <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            </span>
-                            <h3 class="text-base font-bold text-slate-900">Header</h3>
+                        <div>
+                            <!-- Header card title left blank -->
                         </div>
                         <div>
                             ${isEditing('header') ? `
