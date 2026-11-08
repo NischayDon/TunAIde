@@ -1628,6 +1628,24 @@ const Components = {
         const files = client.files || [];
         const isEditing = (sec) => activeSection === sec;
 
+        // Default all cards except header card to collapsed on open
+        if (!App.state.collapsedCards) {
+            App.state.collapsedCards = {
+                'section-A': true,
+                'section-B': true,
+                'section-C': true,
+                'profile-files': true
+            };
+        }
+
+        const isCollapsed = (cardId) => {
+            if (cardId === 'section-A' && (activeSection === 'sectionA' || activeSection === 'personal')) return false;
+            if (cardId === 'section-B' && (activeSection === 'sectionB' || activeSection === 'service')) return false;
+            if (cardId === 'section-C' && (activeSection === 'sectionC' || activeSection === 'contact')) return false;
+            if (!App.state.collapsedCards) return true;
+            return App.state.collapsedCards[cardId] !== false;
+        };
+
         const serviceTypes = ["CONSEIL", "OFPRA", "RECOURS", "TA", "REEXAIN", "RERECOURS"];
         const priorities = ["Normal", "Urgent", "Very Urgent", "Critical", "Rework"];
         const statuses = ["Inwarded", "On Process", "Ready to delivered", "Delivered", "Closed"];
@@ -1668,7 +1686,16 @@ const Components = {
                         Back to Ledger
                     </button>
 
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <button 
+                            id="toggleAllCardsBtn"
+                            onclick="App.toggleAllCardsCollapse()"
+                            class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition flex items-center gap-1.5 shadow-2xs"
+                            title="Expand or collapse all cards"
+                        >
+                            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                            <span id="toggleAllCardsText">${['section-A', 'section-B', 'section-C', 'profile-files'].some(id => isCollapsed(id)) ? 'Expand All' : 'Collapse All'}</span>
+                        </button>
                         <button 
                             onclick="App.confirmDeleteClient('${client.id}', '${App.escapeHtml(fullName).replace(/'/g, "\\'")}')" 
                             class="px-3.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition flex items-center gap-1.5"
@@ -1834,28 +1861,37 @@ const Components = {
                 <div class="space-y-6">
 
                     <!-- 2. Personal Information Card (Strictly 11 fields) -->
-                    <div id="section-A" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div id="section-A" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden transition-all">
+                        <div class="p-5 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">A</span>
                                 <h3 class="text-base font-bold text-slate-900">Personal Information</h3>
                             </div>
-                            <div>
+                            <div class="flex items-center gap-2">
                                 ${isEditing('sectionA') || isEditing('personal') ? `
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
-                                        <button id="saveSectionA-btn" onclick="App.saveProfileSection('${client.id}', 'sectionA')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
-                                    </div>
+                                    <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                    <button id="saveSectionA-btn" onclick="App.saveProfileSection('${client.id}', 'sectionA')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
                                 ` : `
                                     <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionA')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         Edit
                                     </button>
                                 `}
+                                <button 
+                                    id="section-A-collapse-btn"
+                                    onclick="App.toggleCardCollapse('section-A')"
+                                    class="px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-md transition flex items-center gap-1.5 shadow-2xs"
+                                    title="${isCollapsed('section-A') ? 'Expand' : 'Collapse'}"
+                                >
+                                    <span id="section-A-collapse-text">${isCollapsed('section-A') ? 'Expand' : 'Collapse'}</span>
+                                    <svg id="section-A-chevron" class="w-3.5 h-3.5 transition-transform duration-200 ${isCollapsed('section-A') ? '' : 'rotate-180'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
 
-                        <div class="p-6">
+                        <div id="section-A-body" class="border-t border-slate-100 p-6 ${isCollapsed('section-A') ? 'hidden' : ''}">
                             ${isEditing('sectionA') || isEditing('personal') ? `
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                     <!-- 1. Surname* -->
@@ -2005,28 +2041,37 @@ const Components = {
                     </div>
 
                     <!-- 3. Service Information Card (Strictly 5 fields) -->
-                    <div id="section-B" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div id="section-B" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden transition-all">
+                        <div class="p-5 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">B</span>
                                 <h3 class="text-base font-bold text-slate-900">Service Information</h3>
                             </div>
-                            <div>
+                            <div class="flex items-center gap-2">
                                 ${isEditing('sectionB') || isEditing('service') ? `
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
-                                        <button id="saveSectionB-btn" onclick="App.saveProfileSection('${client.id}', 'sectionB')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
-                                    </div>
+                                    <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                    <button id="saveSectionB-btn" onclick="App.saveProfileSection('${client.id}', 'sectionB')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
                                 ` : `
                                     <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionB')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         Edit
                                     </button>
                                 `}
+                                <button 
+                                    id="section-B-collapse-btn"
+                                    onclick="App.toggleCardCollapse('section-B')"
+                                    class="px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-md transition flex items-center gap-1.5 shadow-2xs"
+                                    title="${isCollapsed('section-B') ? 'Expand' : 'Collapse'}"
+                                >
+                                    <span id="section-B-collapse-text">${isCollapsed('section-B') ? 'Expand' : 'Collapse'}</span>
+                                    <svg id="section-B-chevron" class="w-3.5 h-3.5 transition-transform duration-200 ${isCollapsed('section-B') ? '' : 'rotate-180'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
 
-                        <div class="p-6">
+                        <div id="section-B-body" class="border-t border-slate-100 p-6 ${isCollapsed('section-B') ? 'hidden' : ''}">
                             ${isEditing('sectionB') || isEditing('service') ? `
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                     <!-- 1. Numéro OFPRA -->
@@ -2068,28 +2113,37 @@ const Components = {
                     </div>
 
                     <!-- 4. Contact Information Card (Strictly 7 fields) -->
-                    <div id="section-C" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div id="section-C" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden transition-all">
+                        <div class="p-5 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">C</span>
                                 <h3 class="text-base font-bold text-slate-900">Contact Information</h3>
                             </div>
-                            <div>
+                            <div class="flex items-center gap-2">
                                 ${isEditing('sectionC') || isEditing('contact') ? `
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
-                                        <button id="saveSectionC-btn" onclick="App.saveProfileSection('${client.id}', 'sectionC')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
-                                    </div>
+                                    <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
+                                    <button id="saveSectionC-btn" onclick="App.saveProfileSection('${client.id}', 'sectionC')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
                                 ` : `
                                     <button onclick="App.startProfileSectionEdit('${client.id}', 'sectionC')" class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         Edit
                                     </button>
                                 `}
+                                <button 
+                                    id="section-C-collapse-btn"
+                                    onclick="App.toggleCardCollapse('section-C')"
+                                    class="px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-md transition flex items-center gap-1.5 shadow-2xs"
+                                    title="${isCollapsed('section-C') ? 'Expand' : 'Collapse'}"
+                                >
+                                    <span id="section-C-collapse-text">${isCollapsed('section-C') ? 'Expand' : 'Collapse'}</span>
+                                    <svg id="section-C-chevron" class="w-3.5 h-3.5 transition-transform duration-200 ${isCollapsed('section-C') ? '' : 'rotate-180'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
 
-                        <div class="p-6">
+                        <div id="section-C-body" class="border-t border-slate-100 p-6 ${isCollapsed('section-C') ? 'hidden' : ''}">
                             ${isEditing('sectionC') || isEditing('contact') ? `
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                     <!-- 1. Primary Phone* (10 digits starts with 0) -->
@@ -2143,19 +2197,22 @@ const Components = {
                     </div>
 
                     <!-- 5. CLIENT FILES SECTION (Preserved below the 4 cards) -->
-                    <div id="profile-files-section" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div id="profile-files-section" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden transition-all">
+                        <div class="p-5 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
                                 <span class="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                                 </span>
                                 <div>
-                                    <h3 class="text-base font-bold text-slate-900">Client Files</h3>
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="text-base font-bold text-slate-900">Client Files</h3>
+                                        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">${files.length}</span>
+                                    </div>
                                     <p class="text-xs text-slate-500">Supporting documents, IDs, audio/video recordings</p>
                                 </div>
                             </div>
-                            <div>
-                                <label for="clientFilesInput" class="cursor-pointer inline-flex items-center gap-2 bg-blue-600 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 hover:shadow-xs transition">
+                            <div class="flex items-center gap-2">
+                                <label for="clientFilesInput" class="cursor-pointer inline-flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-blue-700 hover:shadow-xs transition">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                                     Add Files
                                 </label>
@@ -2167,92 +2224,105 @@ const Components = {
                                     onchange="App.handleClientFilesUpload('${client.id}', this.files)" 
                                     class="hidden"
                                 >
+                                <button 
+                                    id="profile-files-collapse-btn"
+                                    onclick="App.toggleCardCollapse('profile-files')"
+                                    class="px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-md transition flex items-center gap-1.5 shadow-2xs"
+                                    title="${isCollapsed('profile-files') ? 'Expand' : 'Collapse'}"
+                                >
+                                    <span id="profile-files-collapse-text">${isCollapsed('profile-files') ? 'Expand' : 'Collapse'}</span>
+                                    <svg id="profile-files-chevron" class="w-3.5 h-3.5 transition-transform duration-200 ${isCollapsed('profile-files') ? '' : 'rotate-180'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
 
-                        <!-- Upload Drop Zone -->
-                        <div 
-                            id="clientFileDropZone"
-                            ondragover="event.preventDefault(); this.classList.add('border-blue-500', 'bg-blue-50/40')"
-                            ondragleave="this.classList.remove('border-blue-500', 'bg-blue-50/40')"
-                            ondrop="event.preventDefault(); this.classList.remove('border-blue-500', 'bg-blue-50/40'); App.handleClientFilesUpload('${client.id}', event.dataTransfer.files)"
-                            class="p-4 mx-6 mt-6 border-2 border-dashed border-slate-200 rounded-xl text-center bg-slate-50/50 hover:border-blue-400 hover:bg-blue-50/20 transition cursor-pointer"
-                            onclick="document.getElementById('clientFilesInput').click()"
-                        >
-                            <svg class="w-8 h-8 mx-auto text-slate-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                            <p class="text-xs font-medium text-slate-700">Drag & drop files here, or <span class="text-blue-600 font-semibold">browse</span></p>
-                            <p class="text-[11px] text-slate-400 mt-0.5">Supports PDF, DOC, DOCX, JPG, PNG, MP3, MP4, WAV, M4A up to 50MB</p>
-                        </div>
+                        <div id="profile-files-body" class="border-t border-slate-100 ${isCollapsed('profile-files') ? 'hidden' : ''}">
+                            <!-- Upload Drop Zone -->
+                            <div 
+                                id="clientFileDropZone"
+                                ondragover="event.preventDefault(); this.classList.add('border-blue-500', 'bg-blue-50/40')"
+                                ondragleave="this.classList.remove('border-blue-500', 'bg-blue-50/40')"
+                                ondrop="event.preventDefault(); this.classList.remove('border-blue-500', 'bg-blue-50/40'); App.handleClientFilesUpload('${client.id}', event.dataTransfer.files)"
+                                class="p-4 mx-6 mt-6 border-2 border-dashed border-slate-200 rounded-xl text-center bg-slate-50/50 hover:border-blue-400 hover:bg-blue-50/20 transition cursor-pointer"
+                                onclick="document.getElementById('clientFilesInput').click()"
+                            >
+                                <svg class="w-8 h-8 mx-auto text-slate-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                <p class="text-xs font-medium text-slate-700">Drag & drop files here, or <span class="text-blue-600 font-semibold">browse</span></p>
+                                <p class="text-[11px] text-slate-400 mt-0.5">Supports PDF, DOC, DOCX, JPG, PNG, MP3, MP4, WAV, M4A up to 50MB</p>
+                            </div>
 
-                        <div id="clientFileUploadProgress" class="hidden px-6 pt-3"></div>
+                            <div id="clientFileUploadProgress" class="hidden px-6 pt-3"></div>
 
-                        <!-- Files List -->
-                        <div class="p-6">
-                            ${files.length === 0 ? `
-                                <div class="text-center py-8 text-slate-400 text-xs">
-                                    No documents or media uploaded for this client yet.
-                                </div>
-                            ` : `
-                                <div class="overflow-x-auto">
-                                    <table class="w-full text-left">
-                                        <thead class="text-xs uppercase text-slate-400 font-medium border-b border-slate-100">
-                                            <tr>
-                                                <th class="pb-3">File Name</th>
-                                                <th class="pb-3">Type</th>
-                                                <th class="pb-3">Size</th>
-                                                <th class="pb-3">Uploaded</th>
-                                                <th class="pb-3 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-100 text-xs">
-                                            ${files.map(f => {
-                                                const ext = f.original_filename.split('.').pop().toLowerCase();
-                                                const sizeStr = App.formatFileSize(f.file_size_bytes);
-                                                const uploadDate = f.uploaded_at ? Components.formatDisplayDate(f.uploaded_at) : '—';
-                                                
-                                                return `
-                                                <tr class="hover:bg-slate-50/70 transition">
-                                                    <td class="py-3 font-semibold text-slate-800 flex items-center gap-2.5 max-w-xs truncate">
-                                                        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                                                        <span class="truncate" title="${App.escapeHtml(f.original_filename)}">${App.escapeHtml(f.original_filename)}</span>
-                                                    </td>
-                                                    <td class="py-3 text-slate-500 uppercase font-bold text-[10px]">
-                                                        <span class="px-2 py-0.5 bg-slate-100 rounded text-slate-600">${ext}</span>
-                                                    </td>
-                                                    <td class="py-3 text-slate-500 tabular-nums">${sizeStr}</td>
-                                                    <td class="py-3 text-slate-500 tabular-nums">${uploadDate}</td>
-                                                    <td class="py-3 text-right whitespace-nowrap">
-                                                        <div class="flex items-center justify-end gap-1.5">
-                                                            <button 
-                                                                onclick="App.previewClientFile('${client.id}', '${f.id}', '${App.escapeHtml(f.original_filename)}', '${ext}')" 
-                                                                title="Preview" 
-                                                                class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition"
-                                                            >
-                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                                            </button>
-                                                            <button 
-                                                                onclick="App.downloadClientFile('${client.id}', '${f.id}')" 
-                                                                title="Download" 
-                                                                class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition"
-                                                            >
-                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                                            </button>
-                                                            <button 
-                                                                onclick="App.confirmDeleteClientFile('${client.id}', '${f.id}', '${App.escapeHtml(f.original_filename)}')" 
-                                                                title="Delete File" 
-                                                                class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"
-                                                            >
-                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                                            </button>
-                                                        </div>
-                                                    </td>
+                            <!-- Files List -->
+                            <div class="p-6">
+                                ${files.length === 0 ? `
+                                    <div class="text-center py-8 text-slate-400 text-xs">
+                                        No documents or media uploaded for this client yet.
+                                    </div>
+                                ` : `
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left">
+                                            <thead class="text-xs uppercase text-slate-400 font-medium border-b border-slate-100">
+                                                <tr>
+                                                    <th class="pb-3">File Name</th>
+                                                    <th class="pb-3">Type</th>
+                                                    <th class="pb-3">Size</th>
+                                                    <th class="pb-3">Uploaded</th>
+                                                    <th class="pb-3 text-right">Actions</th>
                                                 </tr>
-                                                `;
-                                            }).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            `}
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100 text-xs">
+                                                ${files.map(f => {
+                                                    const ext = f.original_filename.split('.').pop().toLowerCase();
+                                                    const sizeStr = App.formatFileSize(f.file_size_bytes);
+                                                    const uploadDate = f.uploaded_at ? Components.formatDisplayDate(f.uploaded_at) : '—';
+                                                    
+                                                    return `
+                                                    <tr class="hover:bg-slate-50/70 transition">
+                                                        <td class="py-3 font-semibold text-slate-800 flex items-center gap-2.5 max-w-xs truncate">
+                                                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                                            <span class="truncate" title="${App.escapeHtml(f.original_filename)}">${App.escapeHtml(f.original_filename)}</span>
+                                                        </td>
+                                                        <td class="py-3 text-slate-500 uppercase font-bold text-[10px]">
+                                                            <span class="px-2 py-0.5 bg-slate-100 rounded text-slate-600">${ext}</span>
+                                                        </td>
+                                                        <td class="py-3 text-slate-500 tabular-nums">${sizeStr}</td>
+                                                        <td class="py-3 text-slate-500 tabular-nums">${uploadDate}</td>
+                                                        <td class="py-3 text-right whitespace-nowrap">
+                                                            <div class="flex items-center justify-end gap-1.5">
+                                                                <button 
+                                                                    onclick="App.previewClientFile('${client.id}', '${f.id}', '${App.escapeHtml(f.original_filename)}', '${ext}')" 
+                                                                    title="Preview" 
+                                                                    class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition"
+                                                                >
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                                </button>
+                                                                <button 
+                                                                    onclick="App.downloadClientFile('${client.id}', '${f.id}')" 
+                                                                    title="Download" 
+                                                                    class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition"
+                                                                >
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                                                </button>
+                                                                <button 
+                                                                    onclick="App.confirmDeleteClientFile('${client.id}', '${f.id}', '${App.escapeHtml(f.original_filename)}')" 
+                                                                    title="Delete File" 
+                                                                    class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"
+                                                                >
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    `;
+                                                }).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                `}
+                            </div>
                         </div>
                     </div>
                 </div>

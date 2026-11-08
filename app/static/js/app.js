@@ -2143,6 +2143,13 @@ const App = {
             if (res.ok) {
                 App.state.currentClient = await res.json();
                 App.state.activeProfileSection = null;
+                // All cards except header card start collapsed when the page is opened
+                App.state.collapsedCards = {
+                    'section-A': true,
+                    'section-B': true,
+                    'section-C': true,
+                    'profile-files': true
+                };
                 const idx = (App.state.clients || []).findIndex(c => c.id === clientId);
                 if (idx !== -1) {
                     App.state.clients[idx] = App.state.currentClient;
@@ -2159,11 +2166,97 @@ const App = {
 
     startProfileSectionEdit: (clientId, sectionName) => {
         App.state.activeProfileSection = sectionName;
+        // Automatically expand the section being edited
+        const cardKey = (sectionName === 'sectionA' || sectionName === 'personal') ? 'section-A' :
+                        (sectionName === 'sectionB' || sectionName === 'service') ? 'section-B' :
+                        (sectionName === 'sectionC' || sectionName === 'contact') ? 'section-C' : null;
+        if (cardKey) {
+            if (!App.state.collapsedCards) App.state.collapsedCards = {};
+            App.state.collapsedCards[cardKey] = false;
+        }
         const main = document.getElementById('main-content');
         if (main && App.state.view === 'client-profile') {
             main.innerHTML = Components.ClientProfileView(App.state.currentClient, App.state.activeProfileSection);
             ThinkingLoader.init(main);
         }
+    },
+
+    toggleCardCollapse: (cardId) => {
+        if (!App.state.collapsedCards) App.state.collapsedCards = {};
+        const isCurrentlyCollapsed = App.state.collapsedCards[cardId] !== false;
+        const newCollapsed = !isCurrentlyCollapsed;
+        App.state.collapsedCards[cardId] = newCollapsed;
+
+        const bodyEl = document.getElementById(`${cardId}-body`);
+        const textEl = document.getElementById(`${cardId}-collapse-text`);
+        const chevronEl = document.getElementById(`${cardId}-chevron`);
+        const btnEl = document.getElementById(`${cardId}-collapse-btn`);
+
+        if (bodyEl) {
+            if (newCollapsed) {
+                bodyEl.classList.add('hidden');
+            } else {
+                bodyEl.classList.remove('hidden');
+            }
+        }
+        if (textEl) {
+            textEl.textContent = newCollapsed ? 'Expand' : 'Collapse';
+        }
+        if (chevronEl) {
+            if (newCollapsed) {
+                chevronEl.classList.remove('rotate-180');
+            } else {
+                chevronEl.classList.add('rotate-180');
+            }
+        }
+        if (btnEl) {
+            btnEl.title = newCollapsed ? 'Expand card' : 'Collapse card';
+        }
+        App.updateToggleAllCardsText();
+    },
+
+    toggleAllCardsCollapse: () => {
+        if (!App.state.collapsedCards) App.state.collapsedCards = {};
+        const cardIds = ['section-A', 'section-B', 'section-C', 'profile-files'];
+        const anyCollapsed = cardIds.some(id => App.state.collapsedCards[id] !== false);
+        const targetCollapsed = !anyCollapsed;
+
+        cardIds.forEach(id => {
+            App.state.collapsedCards[id] = targetCollapsed;
+            const bodyEl = document.getElementById(`${id}-body`);
+            const textEl = document.getElementById(`${id}-collapse-text`);
+            const chevronEl = document.getElementById(`${id}-chevron`);
+            const btnEl = document.getElementById(`${id}-collapse-btn`);
+            if (bodyEl) {
+                if (targetCollapsed) {
+                    bodyEl.classList.add('hidden');
+                } else {
+                    bodyEl.classList.remove('hidden');
+                }
+            }
+            if (textEl) {
+                textEl.textContent = targetCollapsed ? 'Expand' : 'Collapse';
+            }
+            if (chevronEl) {
+                if (targetCollapsed) {
+                    chevronEl.classList.remove('rotate-180');
+                } else {
+                    chevronEl.classList.add('rotate-180');
+                }
+            }
+            if (btnEl) {
+                btnEl.title = targetCollapsed ? 'Expand card' : 'Collapse card';
+            }
+        });
+        App.updateToggleAllCardsText();
+    },
+
+    updateToggleAllCardsText: () => {
+        const textEl = document.getElementById('toggleAllCardsText');
+        if (!textEl) return;
+        const cardIds = ['section-A', 'section-B', 'section-C', 'profile-files'];
+        const anyCollapsed = cardIds.some(id => !App.state.collapsedCards || App.state.collapsedCards[id] !== false);
+        textEl.textContent = anyCollapsed ? 'Expand All' : 'Collapse All';
     },
 
     cancelProfileSectionEdit: (clientId) => {
