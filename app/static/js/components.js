@@ -1359,18 +1359,38 @@ const Components = {
 
                     <!-- 1. Header / Workflow Section -->
                     <div class="p-5 bg-slate-50/60 rounded-xl border border-slate-200 space-y-4">
-                        <div class="flex items-center justify-between">
-                            <div></div>
-                            <span class="text-[11px] text-blue-600 font-medium">Ref # auto-generated (SURNAME + phone last 4 digits)</span>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div class="flex items-center gap-3 text-xs">
+                                <span class="flex items-center gap-1 font-semibold text-blue-700">
+                                    <span class="text-blue-600 font-bold">*</span> Mandatory
+                                </span>
+                                <span class="flex items-center gap-1 text-slate-500">
+                                    <span class="text-red-500 font-bold">*</span> Standard
+                                </span>
+                            </div>
+                            <span class="text-[11px] text-blue-600 font-medium">Ref # auto-generated (SURNAME 1st 3 chars + phone last 4 digits)</span>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                            <!-- Ref # (Auto-generated & filled in) -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Ref # <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="newClientRefNumber" 
+                                    readonly 
+                                    placeholder="Auto (e.g. SRI6000)" 
+                                    class="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-100 border border-slate-300 rounded-lg text-blue-700 cursor-not-allowed shadow-inner"
+                                >
+                            </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Date <span class="text-red-500">*</span></label>
-                                <input type="date" id="newClientDate" value="${todayStr}" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                <input type="date" id="newClientDate" value="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Service Type <span class="text-red-500">*</span></label>
-                                <select id="newClientServiceType" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                <select id="newClientServiceType" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
                                     <option value="CONSEIL">CONSEIL</option>
                                     <option value="OFPRA" selected>OFPRA</option>
                                     <option value="RECOURS">RECOURS</option>
@@ -1399,7 +1419,7 @@ const Components = {
                                     <option value="Closed">Closed</option>
                                 </select>
                             </div>
-                            <div class="md:col-span-2 lg:col-span-4">
+                            <div class="md:col-span-2 lg:col-span-5">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Assigned To</label>
                                 <select id="newClientAssignedTo" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
                                     <option value="">Unassigned</option>
@@ -1417,44 +1437,44 @@ const Components = {
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Surname <span class="text-red-500">*</span></label>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Surname <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></label>
                                 <input 
                                     type="text" 
                                     id="newClientSurname" 
                                     required 
                                     placeholder="e.g. SRIKARAN" 
-                                    oninput="this.value = this.value.toUpperCase(); App.updateNewClientPreview();"
+                                    oninput="this.value = this.value.toUpperCase(); this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s\-']/g, ''); App.updateNewClientPreview(); App.updateNewClientRefPreview();"
                                     class="w-full px-3 py-2 text-xs uppercase font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                 >
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">First Name <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></label>
                                 <input 
                                     type="text" 
                                     id="newClientFirstName" 
                                     required 
                                     placeholder="e.g. Sivakumar" 
-                                    oninput="App.updateNewClientPreview();"
+                                    oninput="this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s\-']/g, ''); App.updateNewClientPreview();"
                                     class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                 >
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-500 mb-1">Derived Full Name</label>
+                                <label class="block text-xs font-semibold text-slate-500 mb-1">Derived Full Name <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></label>
                                 <div class="px-3 py-2 text-xs font-bold text-blue-900 bg-blue-50/70 border border-blue-200 rounded-lg truncate min-h-[36px] flex items-center" id="newClientDerivedPreview">
                                     —
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth <span class="text-red-500">*</span></label>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></label>
                                 <input type="date" id="newClientDob" required max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Place of Birth <span class="text-red-500">*</span></label>
-                                <input type="text" id="newClientPlaceOfBirth" required placeholder="e.g. Jaffna" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <input type="text" id="newClientPlaceOfBirth" placeholder="e.g. Jaffna" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Birth Place <span class="text-red-500">*</span></label>
-                                <input type="text" id="newClientBirthPlace" required placeholder="e.g. Northern Province" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <input type="text" id="newClientBirthPlace" placeholder="e.g. Northern Province" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Nationality</label>
@@ -1466,11 +1486,11 @@ const Components = {
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">SP <span class="text-red-500">*</span></label>
-                                <input type="date" id="newClientSp" required max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <input type="date" id="newClientSp" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">EF <span class="text-red-500">*</span></label>
-                                <input type="date" id="newClientEf" required max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <input type="date" id="newClientEf" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <!-- Gender (Single-selection checkbox-style) -->
                             <div class="space-y-1">
@@ -1549,8 +1569,8 @@ const Components = {
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Phone <span class="text-red-500">*</span></label>
-                                <input type="text" id="newClientPhone" required maxlength="10" placeholder="0763796000 (10 digits starts with 0)" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Phone <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></label>
+                                <input type="text" id="newClientPhone" required maxlength="10" placeholder="0763796000 (10 digits starts with 0)" oninput="this.value = this.value.replace(/\D/g, ''); App.updateNewClientRefPreview();" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Secondary Phone</label>
@@ -1562,15 +1582,15 @@ const Components = {
                             </div>
                             <div class="md:col-span-2 lg:col-span-3">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Address <span class="text-red-500">*</span></label>
-                                <input type="text" id="newClientAddress" required placeholder="Street address" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <input type="text" id="newClientAddress" placeholder="Street address" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Ville <span class="text-red-500">*</span></label>
-                                <input type="text" id="newClientVille" required placeholder="City / Ville" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <input type="text" id="newClientVille" placeholder="City / Ville" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Postal Code <span class="text-red-500">*</span></label>
-                                <input type="text" id="newClientPostalCode" required maxlength="5" placeholder="75001 (5 digits)" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                                <input type="text" id="newClientPostalCode" maxlength="5" placeholder="75001 (5 digits)" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Country</label>
@@ -1615,16 +1635,24 @@ const Components = {
         const todayStr = new Date().toISOString().split('T')[0];
 
         // Clean form-style field renderer (NO TABLES)
-        const renderFormField = (label, value, isRequired = false, colSpan = "") => `
+        const renderFormField = (label, value, starType = null, colSpan = "") => {
+            let starHtml = '';
+            if (starType === 'blue' || (starType === true && ['Surname', 'First Name', 'Date of Birth', 'Primary Phone', 'Ref #'].includes(label))) {
+                starHtml = ' <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span>';
+            } else if (starType === 'red' || starType === true) {
+                starHtml = ' <span class="text-red-500">*</span>';
+            }
+            return `
             <div class="space-y-1 ${colSpan}">
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    ${label}${isRequired ? ' <span class="text-red-500">*</span>' : ''}
+                    ${label}${starHtml}
                 </label>
                 <div class="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 bg-slate-50/70 border border-slate-200/80 rounded-lg min-h-[36px] flex items-center break-words">
                     ${value ? App.escapeHtml(value) : '<span class="text-slate-400 font-normal">—</span>'}
                 </div>
             </div>
-        `;
+            `;
+        };
 
         return `
         <div class="pl-64 min-h-screen bg-slate-50">
@@ -1651,6 +1679,16 @@ const Components = {
                     </div>
                 </div>
 
+                <!-- Visual Legend (Blue star = actual mandatory, Red star = standard) -->
+                <div class="flex items-center gap-3 text-xs mb-3">
+                    <span class="flex items-center gap-1 font-semibold text-blue-700">
+                        <span class="text-blue-600 font-bold">*</span> Mandatory
+                    </span>
+                    <span class="flex items-center gap-1 text-slate-500">
+                        <span class="text-red-500 font-bold">*</span> Standard
+                    </span>
+                </div>
+
                 <!-- 1. Header Card (ONLY the 6 required header fields, labeled with client full name) -->
                 <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden mb-6">
                     <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -1658,7 +1696,7 @@ const Components = {
                             <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                             </span>
-                            <h3 class="text-lg font-bold text-slate-900 tracking-tight">${App.escapeHtml(fullName)}</h3>
+                            <h3 class="text-lg font-bold text-slate-900 tracking-tight">${App.escapeHtml(fullName)} <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></h3>
                         </div>
                         <div>
                             ${isEditing('header') ? `
@@ -1680,7 +1718,7 @@ const Components = {
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                                 <!-- 1. Ref # (Non-editable) -->
                                 <div>
-                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Ref #</label>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Ref # <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></label>
                                     <input 
                                         type="text" 
                                         value="${App.escapeHtml(client.reference_number || '—')}" 
@@ -1695,7 +1733,6 @@ const Components = {
                                     <input 
                                         type="date" 
                                         id="secHdr-date" 
-                                        required 
                                         value="${client.client_date ? client.client_date.split('T')[0] : todayStr}" 
                                         class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                                     >
@@ -1706,7 +1743,6 @@ const Components = {
                                     <label class="block text-xs font-semibold text-slate-700 mb-1">Service Type <span class="text-red-500">*</span></label>
                                     <select 
                                         id="secHdr-service_type" 
-                                        required 
                                         class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                                     >
                                         <option value="">Select Service Type</option>
@@ -1752,7 +1788,7 @@ const Components = {
                             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                                 <!-- 1. Ref # (Auto-generated, Non-editable) -->
                                 <div class="space-y-1">
-                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Ref #</span>
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Ref # <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></span>
                                     ${Components.getRefBadge(client.reference_number)}
                                 </div>
 
@@ -1824,17 +1860,17 @@ const Components = {
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                     <!-- 1. Surname* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Surname <span class="text-red-500">*</span></label>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Surname <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></label>
                                         <input type="text" id="secA-surname" value="${App.escapeHtml(client.surname || '')}" oninput="this.value = this.value.toUpperCase(); this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s\-']/g, '')" class="w-full px-3 py-2 text-xs uppercase font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <!-- 2. First Name* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">First Name <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></label>
                                         <input type="text" id="secA-first_name" value="${App.escapeHtml(client.first_name || '')}" oninput="this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s\-']/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <!-- 3. Date of Birth* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth <span class="text-red-500">*</span></label>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></label>
                                         <input type="date" id="secA-date_of_birth" value="${client.date_of_birth ? client.date_of_birth.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <!-- 4. Place of Birth* -->
@@ -1911,15 +1947,15 @@ const Components = {
                                 </div>
                             ` : `
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                    ${renderFormField('Surname', client.surname, true)}
-                                    ${renderFormField('First Name', client.first_name, true)}
-                                    ${renderFormField('Date of Birth', Components.formatDisplayDate(client.date_of_birth), true)}
-                                    ${renderFormField('Place of Birth', client.place_of_birth, true)}
-                                    ${renderFormField('Birth Place', client.birth_place, true)}
+                                    ${renderFormField('Surname', client.surname, 'blue')}
+                                    ${renderFormField('First Name', client.first_name, 'blue')}
+                                    ${renderFormField('Date of Birth', Components.formatDisplayDate(client.date_of_birth), 'blue')}
+                                    ${renderFormField('Place of Birth', client.place_of_birth, 'red')}
+                                    ${renderFormField('Birth Place', client.birth_place, 'red')}
                                     ${renderFormField('Nationality', client.nationality || 'SRI LANKAISE')}
                                     ${renderFormField('Country', client.personal_country)}
-                                    ${renderFormField('SP', Components.formatDisplayDate(client.sp), true)}
-                                    ${renderFormField('EF', Components.formatDisplayDate(client.ef), true)}
+                                    ${renderFormField('SP', Components.formatDisplayDate(client.sp), 'red')}
+                                    ${renderFormField('EF', Components.formatDisplayDate(client.ef), 'red')}
 
                                     <!-- Gender Display -->
                                     <div class="space-y-1">
@@ -2058,7 +2094,7 @@ const Components = {
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                     <!-- 1. Primary Phone* (10 digits starts with 0) -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Phone <span class="text-red-500">*</span></label>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Phone <span class="text-blue-600 font-bold ml-0.5" title="Mandatory">*</span></label>
                                         <input type="text" id="secC-phone_number" value="${App.escapeHtml(client.phone_number || '')}" maxlength="10" placeholder="0763796000" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                                     </div>
                                     <!-- 2. Secondary Phone (10 digits starts with 0) -->
@@ -2094,12 +2130,12 @@ const Components = {
                                 </div>
                             ` : `
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                    ${renderFormField('Primary Phone', client.phone_number, true)}
+                                    ${renderFormField('Primary Phone', client.phone_number, 'blue')}
                                     ${renderFormField('Secondary Phone', client.secondary_phone)}
                                     ${renderFormField('Email Address', client.email)}
-                                    ${renderFormField('Address', client.address, true, 'md:col-span-2 lg:col-span-3')}
-                                    ${renderFormField('Ville', client.ville || client.city, true)}
-                                    ${renderFormField('Postal Code', client.postal_code, true)}
+                                    ${renderFormField('Address', client.address, 'red', 'md:col-span-2 lg:col-span-3')}
+                                    ${renderFormField('Ville', client.ville || client.city, 'red')}
+                                    ${renderFormField('Postal Code', client.postal_code, 'red')}
                                     ${renderFormField('Country', client.country)}
                                 </div>
                             `}

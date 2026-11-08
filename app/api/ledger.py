@@ -282,13 +282,12 @@ def generate_client_reference(db: Session, surname: str, phone: Optional[str], a
     Handles duplicates safely by appending suffix: SRIKARAN6000-1, SRIKARAN6000-2, etc.
     """
     clean_surname = re.sub(r'[^A-Za-z]', '', surname or '').upper()
-    if not clean_surname:
-        clean_surname = "CLIENT"
+    surname_part = clean_surname[:3] if clean_surname else "CLI"
 
     digits = re.sub(r'\D', '', phone or '')
     phone_last4 = digits[-4:] if len(digits) >= 4 else (digits.zfill(4) if digits else "0000")
 
-    base_ref = f"{clean_surname}{phone_last4}"
+    base_ref = f"{surname_part}{phone_last4}"
 
     if attempt == 0:
         existing = db.query(Client.reference_number).filter(Client.reference_number == base_ref).first()
@@ -399,14 +398,14 @@ def create_client(
     Create a new client record with full validation, default values,
     and automatic concurrency-safe unique Ref # generation.
     """
-    # 1. Section A: Personal Information validation
+    # 1. Section A: Personal Information validation (Surname, First Name, DOB strictly mandatory)
     surname = validate_surname(client_data.surname, required=True)
     first_name = validate_first_name(client_data.first_name, required=True)
     date_of_birth = validate_date(client_data.date_of_birth, "Date of Birth", required=True, allow_future=False)
-    place_of_birth = validate_alphabets(client_data.place_of_birth, "Place of Birth", required=True)
-    birth_place = validate_alphabets(client_data.birth_place, "Birth Place", required=True)
-    sp = validate_date(client_data.sp, "SP", required=True, allow_future=False)
-    ef = validate_date(client_data.ef, "EF", required=True, allow_future=False)
+    place_of_birth = validate_alphabets(client_data.place_of_birth, "Place of Birth", required=False)
+    birth_place = validate_alphabets(client_data.birth_place, "Birth Place", required=False)
+    sp = validate_date(client_data.sp, "SP", required=False, allow_future=False)
+    ef = validate_date(client_data.ef, "EF", required=False, allow_future=False)
     gender = client_data.gender
     nationality = validate_alphabets(client_data.nationality, "Nationality", required=False) or "SRI LANKAISE"
     marital_status = client_data.marital_status
@@ -420,19 +419,13 @@ def create_client(
     validate_date_range(from_date, to_date)
     delivered_by = (client_data.delivered_by or "").strip() or None
 
-    # 3. Section C: Contact Information validation
+    # 3. Section C: Contact Information validation (Primary Phone strictly mandatory)
     phone_number = validate_primary_phone(client_data.phone_number, required=True)
     secondary_phone = validate_secondary_phone(client_data.secondary_phone)
     email = validate_email(client_data.email)
-    address = (client_data.address or "").strip()
-    if not address:
-        raise HTTPException(status_code=422, detail="Address is required.")
-    
-    ville = (client_data.ville or client_data.city or "").strip()
-    if not ville:
-        raise HTTPException(status_code=422, detail="Ville is required.")
-    
-    postal_code = validate_postal_code(client_data.postal_code, required=True)
+    address = (client_data.address or "").strip() or None
+    ville = (client_data.ville or client_data.city or "").strip() or None
+    postal_code = validate_postal_code(client_data.postal_code, required=False)
     contact_country = (client_data.country or "").strip() or None
 
     # 4. Section D: Remarks validation & sanitization
@@ -613,7 +606,7 @@ def update_client(
         del data_dict["secondary_phone"]
 
     if "postal_code" in data_dict:
-        client.postal_code = validate_postal_code(data_dict["postal_code"], required=True)
+        client.postal_code = validate_postal_code(data_dict["postal_code"], required=False)
         del data_dict["postal_code"]
 
     if "email" in data_dict:
@@ -632,11 +625,11 @@ def update_client(
 
     # 5. Header fields validation
     if "client_date" in data_dict:
-        client.client_date = validate_date(data_dict["client_date"], "Date", required=True, allow_future=True)
+        client.client_date = validate_date(data_dict["client_date"], "Date", required=False, allow_future=True)
         del data_dict["client_date"]
 
     if "service_type" in data_dict:
-        client.service_type = validate_enum_choice(data_dict["service_type"], SERVICE_TYPES, "Service Type", required=True)
+        client.service_type = validate_enum_choice(data_dict["service_type"], SERVICE_TYPES, "Service Type", required=False)
         del data_dict["service_type"]
 
     if "priority" in data_dict:

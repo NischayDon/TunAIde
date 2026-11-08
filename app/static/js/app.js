@@ -1875,6 +1875,24 @@ const App = {
         if (previewEl) previewEl.textContent = derived;
     },
 
+    updateNewClientRefPreview: () => {
+        const sn = (document.getElementById('newClientSurname')?.value || '').trim().replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3);
+        const digits = (document.getElementById('newClientPhone')?.value || '').trim().replace(/\D/g, '');
+        const last4 = digits.length >= 4 ? digits.slice(-4) : (digits ? digits.padStart(4, '0') : '');
+        const refEl = document.getElementById('newClientRefNumber');
+        if (refEl) {
+            if (sn && last4) {
+                refEl.value = `${sn}${last4}`;
+            } else if (sn) {
+                refEl.value = `${sn}${last4 ? last4 : '••••'}`;
+            } else if (last4) {
+                refEl.value = `•••${last4}`;
+            } else {
+                refEl.value = '';
+            }
+        }
+    },
+
     submitNewClient: async () => {
         const errEl = document.getElementById('newClientError');
         const btn = document.getElementById('saveNewClientBtn');
@@ -1925,38 +1943,36 @@ const App = {
 
 
 
-        // Validations
+        // Validations - ONLY Surname, First Name, DOB, and Primary Phone are mandatory
         const alphaRegex = /^[A-Za-zÀ-ÖØ-öø-ÿ\s\-']+$/;
         if (!surname) return showError('Surname is required.');
         if (!alphaRegex.test(surname)) return showError('Surname must contain alphabets only.');
         if (!first_name) return showError('First Name is required.');
         if (!alphaRegex.test(first_name)) return showError('First Name must contain alphabets only.');
         if (!date_of_birth) return showError('Date of Birth is required.');
-        if (!place_of_birth) return showError('Place of Birth is required.');
-        if (!alphaRegex.test(place_of_birth)) return showError('Place of Birth must contain alphabets only.');
-        if (!birth_place) return showError('Birth Place is required.');
-        if (!alphaRegex.test(birth_place)) return showError('Birth Place must contain alphabets only.');
-        if (!sp) return showError('SP date is required.');
-        if (!ef) return showError('EF date is required.');
 
         const todayStr = new Date().toISOString().split('T')[0];
         if (date_of_birth > todayStr) return showError('Date of Birth cannot be in the future.');
-        if (sp > todayStr) return showError('SP date cannot be in the future.');
-        if (ef > todayStr) return showError('EF date cannot be in the future.');
+
+        // Optional Section A validations (if provided)
+        if (place_of_birth && !alphaRegex.test(place_of_birth)) return showError('Place of Birth must contain alphabets only.');
+        if (birth_place && !alphaRegex.test(birth_place)) return showError('Birth Place must contain alphabets only.');
+        if (sp && sp > todayStr) return showError('SP date cannot be in the future.');
+        if (ef && ef > todayStr) return showError('EF date cannot be in the future.');
+
+        // Optional Section B validations
         if (from_date && from_date > todayStr) return showError('From date cannot be in the future.');
         if (to_date && to_date > todayStr) return showError('To date cannot be in the future.');
         if (from_date && to_date && to_date < from_date) return showError('To date must be on or after From date.');
-
         if (numero_aps && !/^\d{10}$/.test(numero_aps)) return showError('Numéro APS must be exactly 10 numeric digits.');
+
+        // Section C validations (Primary Phone strictly mandatory)
         if (!phone_number) return showError('Primary Phone is required.');
         if (!/^0\d{9}$/.test(phone_number)) return showError('Primary Phone must be exactly 10 digits and start with 0.');
         if (secondary_phone && !/^0\d{9}$/.test(secondary_phone)) return showError('Secondary Phone must be exactly 10 digits and start with 0.');
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showError('Invalid Email Address format.');
-
-        if (!address) return showError('Address is required.');
-        if (!ville) return showError('Ville is required.');
-        if (!postal_code) return showError('Postal Code is required.');
-        if (!/^\d{5}$/.test(postal_code)) return showError('Postal Code must be exactly 5 numeric digits.');
+        if (postal_code && !/^\d{5}$/.test(postal_code)) return showError('Postal Code must be exactly 5 numeric digits.');
+        if (ville && !alphaRegex.test(ville)) return showError('Ville must contain alphabets only.');
 
         if (btn) {
             btn.disabled = true;
@@ -2180,17 +2196,6 @@ const App = {
             const status = document.getElementById('secHdr-status')?.value || 'Inwarded';
             const assigned_to_id = document.getElementById('secHdr-assigned_to')?.value || null;
 
-            if (!client_date) {
-                alert('Date is required.');
-                if (btn) btn.disabled = false;
-                return;
-            }
-            if (!service_type) {
-                alert('Service Type is required.');
-                if (btn) btn.disabled = false;
-                return;
-            }
-
             payload = {
                 client_date,
                 service_type,
@@ -2217,16 +2222,14 @@ const App = {
             if (!alphaRegex.test(first_name)) { alert('First Name must contain alphabets only.'); if (btn) btn.disabled = false; return; }
             if (!date_of_birth) { alert('Date of Birth is required.'); if (btn) btn.disabled = false; return; }
             if (date_of_birth > todayStr) { alert('Date of Birth cannot be in the future.'); if (btn) btn.disabled = false; return; }
-            if (!place_of_birth) { alert('Place of Birth is required.'); if (btn) btn.disabled = false; return; }
-            if (!alphaRegex.test(place_of_birth)) { alert('Place of Birth must contain alphabets only.'); if (btn) btn.disabled = false; return; }
-            if (!birth_place) { alert('Birth Place is required.'); if (btn) btn.disabled = false; return; }
-            if (!alphaRegex.test(birth_place)) { alert('Birth Place must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+
+            // Optional fields validation
+            if (place_of_birth && !alphaRegex.test(place_of_birth)) { alert('Place of Birth must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+            if (birth_place && !alphaRegex.test(birth_place)) { alert('Birth Place must contain alphabets only.'); if (btn) btn.disabled = false; return; }
             if (nationality && !alphaRegex.test(nationality)) { alert('Nationality must contain alphabets only.'); if (btn) btn.disabled = false; return; }
             if (personal_country && !alphaRegex.test(personal_country)) { alert('Country must contain alphabets only.'); if (btn) btn.disabled = false; return; }
-            if (!sp) { alert('SP date is required.'); if (btn) btn.disabled = false; return; }
-            if (sp > todayStr) { alert('SP date cannot be in the future.'); if (btn) btn.disabled = false; return; }
-            if (!ef) { alert('EF date is required.'); if (btn) btn.disabled = false; return; }
-            if (ef > todayStr) { alert('EF date cannot be in the future.'); if (btn) btn.disabled = false; return; }
+            if (sp && sp > todayStr) { alert('SP date cannot be in the future.'); if (btn) btn.disabled = false; return; }
+            if (ef && ef > todayStr) { alert('EF date cannot be in the future.'); if (btn) btn.disabled = false; return; }
 
             payload = {
                 surname,
@@ -2289,11 +2292,8 @@ const App = {
             if (!/^0\d{9}$/.test(phone_number)) { alert('Primary Phone must be exactly 10 digits starting with 0.'); if (btn) btn.disabled = false; return; }
             if (secondary_phone && !/^0\d{9}$/.test(secondary_phone)) { alert('Secondary Phone must be exactly 10 digits starting with 0.'); if (btn) btn.disabled = false; return; }
             if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Invalid Email Address format.'); if (btn) btn.disabled = false; return; }
-            if (!address) { alert('Address is required.'); if (btn) btn.disabled = false; return; }
-            if (!ville) { alert('Ville is required.'); if (btn) btn.disabled = false; return; }
-            if (!alphaRegex.test(ville)) { alert('Ville must contain alphabets only.'); if (btn) btn.disabled = false; return; }
-            if (!postal_code) { alert('Postal Code is required.'); if (btn) btn.disabled = false; return; }
-            if (!/^\d{5}$/.test(postal_code)) { alert('Postal Code must be exactly 5 numeric digits.'); if (btn) btn.disabled = false; return; }
+            if (ville && !alphaRegex.test(ville)) { alert('Ville must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+            if (postal_code && !/^\d{5}$/.test(postal_code)) { alert('Postal Code must be exactly 5 numeric digits.'); if (btn) btn.disabled = false; return; }
             if (country && !alphaRegex.test(country)) { alert('Country must contain alphabets only.'); if (btn) btn.disabled = false; return; }
 
             payload = {

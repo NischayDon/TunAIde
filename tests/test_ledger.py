@@ -148,7 +148,7 @@ def test_client_creation_and_derived_name():
     assert data["first_name"] == "Jean"
     assert data["full_name"] == "SRIKARAN Jean"
     assert data["phone_number"] == "0763796000"
-    assert data["reference_number"] == "SRIKARAN6000"
+    assert data["reference_number"] == "SRI6000"
     assert data["created_by_id"] == "user_1"
     assert "id" in data
 
@@ -158,7 +158,7 @@ def test_client_creation_and_derived_name():
     list_data = list_res.json()
     assert list_data["total"] == 1
     assert list_data["items"][0]["full_name"] == "SRIKARAN Jean"
-    assert list_data["items"][0]["reference_number"] == "SRIKARAN6000"
+    assert list_data["items"][0]["reference_number"] == "SRI6000"
 
 
 def test_reference_number_format_and_duplicate_handling():
@@ -167,19 +167,19 @@ def test_reference_number_format_and_duplicate_handling():
     p1 = valid_client_payload(surname="SRIKARAN", phone_number="0763796000")
     res1 = client.post("/api/ledger/clients", json=p1)
     assert res1.status_code == 201
-    assert res1.json()["reference_number"] == "SRIKARAN6000"
+    assert res1.json()["reference_number"] == "SRI6000"
 
     # Second client with same surname and phone ending
     p2 = valid_client_payload(surname="SRIKARAN", phone_number="0145676000")
     res2 = client.post("/api/ledger/clients", json=p2)
     assert res2.status_code == 201
-    assert res2.json()["reference_number"] == "SRIKARAN6000-1"
+    assert res2.json()["reference_number"] == "SRI6000-1"
 
     # Third client
     p3 = valid_client_payload(surname="SRIKARAN", phone_number="0699996000")
     res3 = client.post("/api/ledger/clients", json=p3)
     assert res3.status_code == 201
-    assert res3.json()["reference_number"] == "SRIKARAN6000-2"
+    assert res3.json()["reference_number"] == "SRI6000-2"
 
 
 def test_reference_number_immutable_on_patch():
@@ -188,7 +188,7 @@ def test_reference_number_immutable_on_patch():
     res = client.post("/api/ledger/clients", json=p)
     client_id = res.json()["id"]
     orig_ref = res.json()["reference_number"]
-    assert orig_ref == "SRIKARAN6000"
+    assert orig_ref == "SRI6000"
 
     # Patch with new surname and phone
     patch_res = client.patch(f"/api/ledger/clients/{client_id}", json={
@@ -200,11 +200,11 @@ def test_reference_number_immutable_on_patch():
     updated = patch_res.json()
     assert updated["surname"] == "MOHAMED"
     assert updated["phone_number"] == "0711223344"
-    assert updated["reference_number"] == "SRIKARAN6000"  # Unchanged!
+    assert updated["reference_number"] == "SRI6000"  # Unchanged!
 
 
 def test_client_creation_mandatory_fields_validation():
-    """Validation rejects missing mandatory fields."""
+    """Validation rejects missing mandatory fields: mobile number, first name, surname, DOB."""
     # Missing surname
     p1 = valid_client_payload(surname="")
     assert client.post("/api/ledger/clients", json=p1).status_code == 422
@@ -217,33 +217,23 @@ def test_client_creation_mandatory_fields_validation():
     p3 = valid_client_payload(date_of_birth="")
     assert client.post("/api/ledger/clients", json=p3).status_code == 422
 
-    # Missing place of birth
-    p4 = valid_client_payload(place_of_birth="")
+    # Missing phone number (mobile number)
+    p4 = valid_client_payload(phone_number="")
     assert client.post("/api/ledger/clients", json=p4).status_code == 422
 
-    # Missing birth place
-    p5 = valid_client_payload(birth_place="")
-    assert client.post("/api/ledger/clients", json=p5).status_code == 422
-
-    # Missing sp
-    p6 = valid_client_payload(sp="")
-    assert client.post("/api/ledger/clients", json=p6).status_code == 422
-
-    # Missing ef
-    p7 = valid_client_payload(ef="")
-    assert client.post("/api/ledger/clients", json=p7).status_code == 422
-
-    # Missing phone number
-    p8 = valid_client_payload(phone_number="")
-    assert client.post("/api/ledger/clients", json=p8).status_code == 422
-
-    # Missing address
-    p9 = valid_client_payload(address="")
-    assert client.post("/api/ledger/clients", json=p9).status_code == 422
-
-    # Missing postal code
-    p10 = valid_client_payload(postal_code="")
-    assert client.post("/api/ledger/clients", json=p10).status_code == 422
+    # Non-mandatory fields: place_of_birth, birth_place, sp, ef, address, postal_code are optional!
+    p_optional = valid_client_payload(
+        place_of_birth="",
+        birth_place="",
+        sp="",
+        ef="",
+        address="",
+        ville="",
+        postal_code=""
+    )
+    res_optional = client.post("/api/ledger/clients", json=p_optional)
+    assert res_optional.status_code == 201
+    assert res_optional.json()["reference_number"].startswith("SRI")
 
 
 def test_phone_validation():
@@ -705,7 +695,7 @@ def test_client_details_header_six_fields():
     assert create_res.status_code == 201
     c = create_res.json()
     client_id = c["id"]
-    assert c["reference_number"] == "SRIKARAN6000"
+    assert c["reference_number"] == "SRI6000"
     assert c["client_date"] == today_str
     assert c["service_type"] == "OFPRA"
     assert c["priority"] == "Normal"
@@ -725,7 +715,7 @@ def test_client_details_header_six_fields():
     })
     assert patch_res.status_code == 200
     updated = patch_res.json()
-    assert updated["reference_number"] == "SRIKARAN6000"  # Unchanged!
+    assert updated["reference_number"] == "SRI6000"  # Unchanged!
     assert updated["client_date"] == new_date
     assert updated["service_type"] == "RECOURS"
     assert updated["priority"] == "Very Urgent"
@@ -738,7 +728,7 @@ def test_client_details_header_six_fields():
     assert grid_res.status_code == 200
     items = grid_res.json()["items"]
     match = next(item for item in items if item["id"] == client_id)
-    assert match["reference_number"] == "SRIKARAN6000"
+    assert match["reference_number"] == "SRI6000"
     assert match["client_date"] == new_date
     assert match["service_type"] == "RECOURS"
     assert match["priority"] == "Very Urgent"
@@ -795,7 +785,7 @@ def test_final_client_details_structure_and_validations():
     assert c["surname"] == "SRIKARAN"
     assert c["first_name"] == "Sivakumar"
     assert c["full_name"] == "SRIKARAN Sivakumar"
-    assert c["reference_number"] == "SRIKARAN6000"
+    assert c["reference_number"] == "SRI6000"
 
     # Header 6 fields
     assert c["client_date"] == "2026-11-08"
@@ -848,7 +838,7 @@ def test_final_client_details_structure_and_validations():
     updated_name = name_patch.json()
     assert updated_name["full_name"] == "PERERA Kamal"
     # Ref number remains immutable
-    assert updated_name["reference_number"] == "SRIKARAN6000"
+    assert updated_name["reference_number"] == "SRI6000"
 
 
 def test_independent_card_updates_and_leading_zero_preservation():
@@ -880,7 +870,7 @@ def test_independent_card_updates_and_leading_zero_preservation():
     assert c["secondary_phone"] == "0987654321"
     assert c["postal_code"] == "06000"
     assert c["numero_aps"] == "0123456789"
-    assert c["reference_number"] == "SILVA6789"
+    assert c["reference_number"] == "SIL6789"
 
     # 2. Update Card 2 (Personal Information) ONLY
     patch_personal = client.patch(f"/api/ledger/clients/{cid}", json={
@@ -931,3 +921,37 @@ def test_independent_card_updates_and_leading_zero_preservation():
     assert after_contact["postal_code"] == "06000"
     # Service Info untouched
     assert after_contact["numero_ofpra"] == "OFP-8888"
+
+
+def test_mandatory_fields_and_first3_char_ref_number():
+    """
+    Test that ONLY mobile number, first name, surname, full name, date of birth,
+    and reference number (REF#) are mandatory.
+    REF# is surnames first 3 chars + phone numbers last 4 digits.
+    All other fields can be omitted.
+    """
+    # 1. Create client with ONLY the mandatory fields
+    res = client.post("/api/ledger/clients", json={
+        "surname": "fernando",  # becomes FERNANDO -> first 3 chars FER
+        "first_name": "Rohan",
+        "date_of_birth": "1995-10-20",
+        "phone_number": "0771234567"  # last 4 digits 4567
+    })
+    assert res.status_code == 201
+    c = res.json()
+    assert c["surname"] == "FERNANDO"
+    assert c["first_name"] == "Rohan"
+    assert c["full_name"] == "FERNANDO Rohan"
+    assert c["date_of_birth"] == "1995-10-20"
+    assert c["phone_number"] == "0771234567"
+    assert c["reference_number"] == "FER4567"
+
+    # 2. Verify duplicate suffix with same 3-char prefix and phone ending
+    res_dup = client.post("/api/ledger/clients", json={
+        "surname": "FERRARI",  # also FER
+        "first_name": "Enzo",
+        "date_of_birth": "1980-02-18",
+        "phone_number": "0600004567"  # last 4 digits 4567
+    })
+    assert res_dup.status_code == 201
+    assert res_dup.json()["reference_number"] == "FER4567-1"
