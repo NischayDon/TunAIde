@@ -849,3 +849,85 @@ def test_final_client_details_structure_and_validations():
     assert updated_name["full_name"] == "PERERA Kamal"
     # Ref number remains immutable
     assert updated_name["reference_number"] == "SRIKARAN6000"
+
+
+def test_independent_card_updates_and_leading_zero_preservation():
+    """
+    Test that updating each card independently does NOT overwrite other cards,
+    and leading zeros in phone_number, secondary_phone, and postal_code are preserved.
+    """
+    # 1. Create client with leading zeros in phone numbers and postal code
+    payload = valid_client_payload(
+        surname="SILVA",
+        first_name="Nuwan",
+        phone_number="0123456789",  # leading 0
+        secondary_phone="0987654321",  # leading 0
+        postal_code="06000",  # leading 0 (e.g. Nice, France postal code)
+        address="15 Promenade des Anglais",
+        ville="Nice",
+        service_type="CONSEIL",
+        priority="Normal",
+        status="Inwarded",
+        numero_ofpra="OFP-9999",
+        numero_aps="0123456789"  # exactly 10 digits with leading 0
+    )
+    res = client.post("/api/ledger/clients", json=payload)
+    assert res.status_code == 201
+    c = res.json()
+    cid = c["id"]
+
+    assert c["phone_number"] == "0123456789"
+    assert c["secondary_phone"] == "0987654321"
+    assert c["postal_code"] == "06000"
+    assert c["numero_aps"] == "0123456789"
+    assert c["reference_number"] == "SILVA6789"
+
+    # 2. Update Card 2 (Personal Information) ONLY
+    patch_personal = client.patch(f"/api/ledger/clients/{cid}", json={
+        "place_of_birth": "Colombo",
+        "birth_place": "Western Province",
+        "gender": "Male",
+        "marital_status": "Married"
+    })
+    assert patch_personal.status_code == 200
+    after_personal = patch_personal.json()
+    assert after_personal["place_of_birth"] == "Colombo"
+    assert after_personal["birth_place"] == "Western Province"
+    assert after_personal["gender"] == "Male"
+    assert after_personal["marital_status"] == "Married"
+    # Ensure Card 1 (Header), Card 3 (Service), Card 4 (Contact) remained intact!
+    assert after_personal["service_type"] == "CONSEIL"
+    assert after_personal["priority"] == "Normal"
+    assert after_personal["status"] == "Inwarded"
+    assert after_personal["numero_ofpra"] == "OFP-9999"
+    assert after_personal["numero_aps"] == "0123456789"
+    assert after_personal["phone_number"] == "0123456789"
+    assert after_personal["postal_code"] == "06000"
+
+    # 3. Update Card 3 (Service Information) ONLY
+    patch_service = client.patch(f"/api/ledger/clients/{cid}", json={
+        "numero_ofpra": "OFP-8888",
+        "delivered_by": "OFPRA Paris"
+    })
+    assert patch_service.status_code == 200
+    after_service = patch_service.json()
+    assert after_service["numero_ofpra"] == "OFP-8888"
+    assert after_service["delivered_by"] == "OFPRA Paris"
+    # Ensure Personal Info and Contact Info untouched!
+    assert after_service["place_of_birth"] == "Colombo"
+    assert after_service["phone_number"] == "0123456789"
+
+    # 4. Update Card 4 (Contact Information) ONLY
+    patch_contact = client.patch(f"/api/ledger/clients/{cid}", json={
+        "address": "20 Avenue Jean Medecin",
+        "email": "nuwan.silva@example.com"
+    })
+    assert patch_contact.status_code == 200
+    after_contact = patch_contact.json()
+    assert after_contact["address"] == "20 Avenue Jean Medecin"
+    assert after_contact["email"] == "nuwan.silva@example.com"
+    # Phone and Postal code still have their leading zeros!
+    assert after_contact["phone_number"] == "0123456789"
+    assert after_contact["postal_code"] == "06000"
+    # Service Info untouched
+    assert after_contact["numero_ofpra"] == "OFP-8888"

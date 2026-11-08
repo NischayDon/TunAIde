@@ -136,7 +136,12 @@ app.include_router(ledger.router, prefix="/ledger", tags=["Ledger"])
 @app.get("/", response_class=HTMLResponse)
 def read_root():
     with open(os.path.join("app", "templates", "index.html"), "r") as f:
-        return f.read()
+        content = f.read()
+    response = HTMLResponse(content=content)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.get("/health")
 def health_check():

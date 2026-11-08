@@ -1357,13 +1357,18 @@ const Components = {
                 <form id="newClientForm" onsubmit="event.preventDefault(); App.submitNewClient();" class="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
                     <div id="newClientError" class="hidden p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-700 flex items-center gap-2"></div>
 
-                    <!-- Workflow & Header Section -->
-                    <div class="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-3">
+                    <!-- 1. Header / Workflow Section -->
+                    <div class="p-5 bg-slate-50/60 rounded-xl border border-slate-200 space-y-4">
                         <div class="flex items-center justify-between">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-blue-900">Workflow & Assignment</h4>
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                </span>
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-900">Header & Workflow</h4>
+                            </div>
                             <span class="text-[11px] text-blue-600 font-medium">Ref # auto-generated (SURNAME + phone last 4 digits)</span>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Date <span class="text-red-500">*</span></label>
                                 <input type="date" id="newClientDate" value="${todayStr}" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
@@ -1399,7 +1404,7 @@ const Components = {
                                     <option value="Closed">Closed</option>
                                 </select>
                             </div>
-                            <div class="md:col-span-4">
+                            <div class="md:col-span-2 lg:col-span-4">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Assigned To</label>
                                 <select id="newClientAssignedTo" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
                                     <option value="">Unassigned</option>
@@ -1409,13 +1414,13 @@ const Components = {
                         </div>
                     </div>
 
-                    <!-- SECTION A: Personal Information -->
-                    <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-4">
-                        <div class="flex items-center gap-2">
+                    <!-- 2. Personal Information Card -->
+                    <div class="border border-slate-200 rounded-xl p-5 bg-white space-y-4">
+                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
                             <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">A</span>
                             <h4 class="text-sm font-bold text-slate-900">Personal Information</h4>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Surname <span class="text-red-500">*</span></label>
                                 <input 
@@ -1433,14 +1438,14 @@ const Components = {
                                     type="text" 
                                     id="newClientFirstName" 
                                     required 
-                                    placeholder="e.g. Jean" 
+                                    placeholder="e.g. Sivakumar" 
                                     oninput="App.updateNewClientPreview();"
                                     class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                 >
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-500 mb-1">Derived Full Name</label>
-                                <div class="px-3 py-2 text-xs font-bold text-blue-900 bg-blue-50 border border-blue-200 rounded-lg truncate" id="newClientDerivedPreview">
+                                <div class="px-3 py-2 text-xs font-bold text-blue-900 bg-blue-50/70 border border-blue-200 rounded-lg truncate min-h-[36px] flex items-center" id="newClientDerivedPreview">
                                     —
                                 </div>
                             </div>
@@ -1457,31 +1462,11 @@ const Components = {
                                 <input type="text" id="newClientBirthPlace" required placeholder="e.g. Northern Province" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
-                                <select id="newClientGender" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
-                                    <option value="">Not Revealed</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                    <option value="Not Revealed">Not Revealed</option>
-                                </select>
-                            </div>
-                            <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Nationality</label>
                                 <input type="text" id="newClientNationality" value="SRI LANKAISE" placeholder="SRI LANKAISE" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Marital Status</label>
-                                <select id="newClientMaritalStatus" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
-                                    <option value="">Single</option>
-                                    <option value="Single">Single</option>
-                                    <option value="Married">Married</option>
-                                    <option value="Separated">Separated</option>
-                                    <option value="Divorced">Divorced</option>
-                                    <option value="Widowed">Widowed</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Country (Section A)</label>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Country</label>
                                 <input type="text" id="newClientPersonalCountry" placeholder="e.g. Sri Lanka" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
@@ -1492,23 +1477,59 @@ const Components = {
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">EF <span class="text-red-500">*</span></label>
                                 <input type="date" id="newClientEf" required max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
+                            <!-- Gender (Single-selection checkbox-style) -->
+                            <div class="space-y-1">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
+                                <div class="flex flex-wrap items-center gap-2 pt-0.5">
+                                    <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                        <input type="radio" name="newClientGender" value="Male" class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                        <span>Male</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                        <input type="radio" name="newClientGender" value="Female" class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                        <span>Female</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                        <input type="radio" name="newClientGender" value="Not Revealed" checked class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                        <span>Not Revealed</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <!-- Marital Status (Single-selection checkbox-style) -->
+                            <div class="space-y-1">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Marital Status</label>
+                                <div class="flex flex-wrap items-center gap-2 pt-0.5">
+                                    <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                        <input type="radio" name="newClientMaritalStatus" value="Single" checked class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                        <span>Single</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                        <input type="radio" name="newClientMaritalStatus" value="Married" class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                        <span>Married</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                        <input type="radio" name="newClientMaritalStatus" value="Separated" class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                        <span>Separated</span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- SECTION B: Service Information -->
-                    <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-4">
-                        <div class="flex items-center gap-2">
+                    <!-- 3. Service Information Card -->
+                    <div class="border border-slate-200 rounded-xl p-5 bg-white space-y-4">
+                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
                             <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">B</span>
                             <h4 class="text-sm font-bold text-slate-900">Service Information</h4>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Numéro OFPRA</label>
                                 <input type="text" id="newClientOfpra" placeholder="OFPRA identifier" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Numéro APS (10 digits)</label>
-                                <input type="text" id="newClientAps" maxlength="10" placeholder="10 numeric digits" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                                <input type="text" id="newClientAps" maxlength="10" placeholder="10 numeric digits" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Delivered By</label>
@@ -1525,26 +1546,26 @@ const Components = {
                         </div>
                     </div>
 
-                    <!-- SECTION C: Contact Information -->
-                    <div class="border border-slate-200 rounded-xl p-4 bg-white space-y-4">
-                        <div class="flex items-center gap-2">
+                    <!-- 4. Contact Information Card -->
+                    <div class="border border-slate-200 rounded-xl p-5 bg-white space-y-4">
+                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
                             <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">C</span>
                             <h4 class="text-sm font-bold text-slate-900">Contact Information</h4>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Phone <span class="text-red-500">*</span></label>
-                                <input type="text" id="newClientPhone" required maxlength="10" placeholder="0763796000 (10 digits starts with 0)" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                                <input type="text" id="newClientPhone" required maxlength="10" placeholder="0763796000 (10 digits starts with 0)" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Secondary Phone</label>
-                                <input type="text" id="newClientSecPhone" maxlength="10" placeholder="0XXXXXXXXX (optional)" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                                <input type="text" id="newClientSecPhone" maxlength="10" placeholder="0XXXXXXXXX (optional)" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
                                 <input type="email" id="newClientEmail" placeholder="client@example.com" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
-                            <div class="md:col-span-3">
+                            <div class="md:col-span-2 lg:col-span-3">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Address <span class="text-red-500">*</span></label>
                                 <input type="text" id="newClientAddress" required placeholder="Street address" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
@@ -1554,10 +1575,10 @@ const Components = {
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Postal Code <span class="text-red-500">*</span></label>
-                                <input type="text" id="newClientPostalCode" required maxlength="5" placeholder="75001 (5 digits)" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                                <input type="text" id="newClientPostalCode" required maxlength="5" placeholder="75001 (5 digits)" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Country (Contact)</label>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Country</label>
                                 <input type="text" id="newClientContactCountry" placeholder="France" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                         </div>
@@ -1592,18 +1613,23 @@ const Components = {
         const files = client.files || [];
         const isEditing = (sec) => activeSection === sec;
 
-        const renderField = (label, value) => `
-            <div class="space-y-0.5">
-                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">${label}</span>
-                <p class="text-sm font-semibold text-slate-800 break-words">${value ? App.escapeHtml(value) : '<span class="text-slate-400 font-normal">—</span>'}</p>
-            </div>
-        `;
-
         const serviceTypes = ["CONSEIL", "OFPRA", "RECOURS", "TA", "REEXAIN", "RERECOURS"];
         const priorities = ["Normal", "Urgent", "Very Urgent", "Critical", "Rework"];
         const statuses = ["Inwarded", "On Process", "Ready to delivered", "Delivered", "Closed"];
         const users = App.state.assignableUsers || [];
         const todayStr = new Date().toISOString().split('T')[0];
+
+        // Clean form-style field renderer (NO TABLES)
+        const renderFormField = (label, value, isRequired = false, colSpan = "") => `
+            <div class="space-y-1 ${colSpan}">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    ${label}${isRequired ? ' <span class="text-red-500">*</span>' : ''}
+                </label>
+                <div class="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 bg-slate-50/70 border border-slate-200/80 rounded-lg min-h-[36px] flex items-center break-words">
+                    ${value ? App.escapeHtml(value) : '<span class="text-slate-400 font-normal">—</span>'}
+                </div>
+            </div>
+        `;
 
         return `
         <div class="pl-64 min-h-screen bg-slate-50">
@@ -1630,15 +1656,15 @@ const Components = {
                     </div>
                 </div>
 
-                <!-- Profile Header Title (SURNAME Firstname format) -->
+                <!-- Profile Title Header (SURNAME Firstname format) -->
                 <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h2 class="text-2xl font-bold text-slate-900 tracking-tight">${App.escapeHtml(fullName)}</h2>
-                        <p class="text-xs text-slate-500 mt-1">Client Record Details</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Client Record Details</p>
                     </div>
                 </div>
 
-                <!-- Client Header Card (ONLY the 6 required header fields) -->
+                <!-- 1. Header Card (ONLY the 6 required header fields) -->
                 <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden mb-6">
                     <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                         <div class="flex items-center gap-2.5">
@@ -1664,7 +1690,7 @@ const Components = {
 
                     <div class="p-6">
                         ${isEditing('header') ? `
-                            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                                 <!-- 1. Ref # (Non-editable) -->
                                 <div>
                                     <label class="block text-xs font-semibold text-slate-700 mb-1">Ref #</label>
@@ -1745,7 +1771,7 @@ const Components = {
 
                                 <!-- 2. Date* (Date Picker, Editable, display format: DD/MM/YYYY) -->
                                 <div class="space-y-1">
-                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Date *</span>
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Date <span class="text-red-500">*</span></span>
                                     <p class="text-sm font-semibold font-mono text-slate-800 tabular-nums">
                                         ${Components.formatDisplayDate(client.client_date || (client.created_at ? client.created_at.split('T')[0] : ''))}
                                     </p>
@@ -1753,7 +1779,7 @@ const Components = {
 
                                 <!-- 3. Service Type* (Combo Box, Required) -->
                                 <div class="space-y-1">
-                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Service Type *</span>
+                                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Service Type <span class="text-red-500">*</span></span>
                                     ${Components.getServiceTypeBadge(client.service_type)}
                                 </div>
 
@@ -1781,10 +1807,10 @@ const Components = {
                     </div>
                 </div>
 
-                <!-- Sections Cards -->
+                <!-- The 3 Information Cards (Personal, Service, Contact) -->
                 <div class="space-y-6">
 
-                    <!-- SECTION A: Personal Information -->
+                    <!-- 2. Personal Information Card (Strictly 11 fields) -->
                     <div id="section-A" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
@@ -1792,7 +1818,7 @@ const Components = {
                                 <h3 class="text-base font-bold text-slate-900">Personal Information</h3>
                             </div>
                             <div>
-                                ${isEditing('sectionA') ? `
+                                ${isEditing('sectionA') || isEditing('personal') ? `
                                     <div class="flex items-center gap-2">
                                         <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
                                         <button id="saveSectionA-btn" onclick="App.saveProfileSection('${client.id}', 'sectionA')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
@@ -1807,85 +1833,155 @@ const Components = {
                         </div>
 
                         <div class="p-6">
-                            ${isEditing('sectionA') ? `
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            ${isEditing('sectionA') || isEditing('personal') ? `
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    <!-- 1. Surname* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Surname *</label>
-                                        <input type="text" id="secA-surname" value="${App.escapeHtml(client.surname || '')}" oninput="this.value = this.value.toUpperCase()" class="w-full px-3 py-2 text-xs uppercase font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Surname <span class="text-red-500">*</span></label>
+                                        <input type="text" id="secA-surname" value="${App.escapeHtml(client.surname || '')}" oninput="this.value = this.value.toUpperCase(); this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s\-']/g, '')" class="w-full px-3 py-2 text-xs uppercase font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 2. First Name* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">First Name *</label>
-                                        <input type="text" id="secA-first_name" value="${App.escapeHtml(client.first_name || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                                        <input type="text" id="secA-first_name" value="${App.escapeHtml(client.first_name || '')}" oninput="this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s\-']/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 3. Date of Birth* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth *</label>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth <span class="text-red-500">*</span></label>
                                         <input type="date" id="secA-date_of_birth" value="${client.date_of_birth ? client.date_of_birth.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 4. Place of Birth* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Place of Birth *</label>
-                                        <input type="text" id="secA-place_of_birth" value="${App.escapeHtml(client.place_of_birth || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Place of Birth <span class="text-red-500">*</span></label>
+                                        <input type="text" id="secA-place_of_birth" value="${App.escapeHtml(client.place_of_birth || '')}" oninput="this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s\-']/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 5. Birth Place* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Birth Place *</label>
-                                        <input type="text" id="secA-birth_place" value="${App.escapeHtml(client.birth_place || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Birth Place <span class="text-red-500">*</span></label>
+                                        <input type="text" id="secA-birth_place" value="${App.escapeHtml(client.birth_place || '')}" oninput="this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s\-']/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
-                                        <select id="secA-gender" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
-                                            <option value="" ${!client.gender ? 'selected' : ''}>Not Revealed</option>
-                                            <option value="Male" ${client.gender === 'Male' ? 'selected' : ''}>Male</option>
-                                            <option value="Female" ${client.gender === 'Female' ? 'selected' : ''}>Female</option>
-                                            <option value="Not Revealed" ${client.gender === 'Not Revealed' ? 'selected' : ''}>Not Revealed</option>
-                                        </select>
-                                    </div>
+                                    <!-- 6. Nationality -->
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-700 mb-1">Nationality</label>
-                                        <input type="text" id="secA-nationality" value="${App.escapeHtml(client.nationality || 'SRI LANKAISE')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <input type="text" id="secA-nationality" value="${App.escapeHtml(client.nationality || 'SRI LANKAISE')}" oninput="this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s\-']/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 7. Country -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Marital Status</label>
-                                        <select id="secA-marital_status" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
-                                            <option value="" ${!client.marital_status ? 'selected' : ''}>Select</option>
-                                            <option value="Single" ${client.marital_status === 'Single' ? 'selected' : ''}>Single</option>
-                                            <option value="Married" ${client.marital_status === 'Married' ? 'selected' : ''}>Married</option>
-                                            <option value="Separated" ${client.marital_status === 'Separated' ? 'selected' : ''}>Separated</option>
-                                            <option value="Divorced" ${client.marital_status === 'Divorced' ? 'selected' : ''}>Divorced</option>
-                                            <option value="Widowed" ${client.marital_status === 'Widowed' ? 'selected' : ''}>Widowed</option>
-                                        </select>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Country</label>
+                                        <input type="text" id="secA-personal_country" value="${App.escapeHtml(client.personal_country || '')}" oninput="this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s\-']/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 8. SP* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Country (Section A)</label>
-                                        <input type="text" id="secA-personal_country" value="${App.escapeHtml(client.personal_country || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">SP *</label>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">SP <span class="text-red-500">*</span></label>
                                         <input type="date" id="secA-sp" value="${client.sp ? client.sp.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 9. EF* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">EF *</label>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">EF <span class="text-red-500">*</span></label>
                                         <input type="date" id="secA-ef" value="${client.ef ? client.ef.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <!-- 10. Gender (Single-selection checkbox-style) -->
+                                    <div class="space-y-1">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
+                                        <div class="flex flex-wrap items-center gap-2 pt-0.5">
+                                            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                                <input type="radio" name="secA-gender" value="Male" ${client.gender === 'Male' ? 'checked' : ''} class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                                <span>Male</span>
+                                            </label>
+                                            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                                <input type="radio" name="secA-gender" value="Female" ${client.gender === 'Female' ? 'checked' : ''} class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                                <span>Female</span>
+                                            </label>
+                                            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                                <input type="radio" name="secA-gender" value="Not Revealed" ${(!client.gender || client.gender === 'Not Revealed') ? 'checked' : ''} class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                                <span>Not Revealed</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <!-- 11. Marital Status (Single-selection checkbox-style) -->
+                                    <div class="space-y-1">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Marital Status</label>
+                                        <div class="flex flex-wrap items-center gap-2 pt-0.5">
+                                            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                                <input type="radio" name="secA-marital_status" value="Single" ${(client.marital_status === 'Single' || !client.marital_status) ? 'checked' : ''} class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                                <span>Single</span>
+                                            </label>
+                                            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                                <input type="radio" name="secA-marital_status" value="Married" ${client.marital_status === 'Married' ? 'checked' : ''} class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                                <span>Married</span>
+                                            </label>
+                                            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                                <input type="radio" name="secA-marital_status" value="Separated" ${client.marital_status === 'Separated' ? 'checked' : ''} class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                                <span>Separated</span>
+                                            </label>
+                                            ${(client.marital_status && !['Single', 'Married', 'Separated'].includes(client.marital_status)) ? `
+                                            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition">
+                                                <input type="radio" name="secA-marital_status" value="${App.escapeHtml(client.marital_status)}" checked class="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500">
+                                                <span>${App.escapeHtml(client.marital_status)}</span>
+                                            </label>` : ''}
+                                        </div>
                                     </div>
                                 </div>
                             ` : `
-                                <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    ${renderField('Full Name (Derived)', client.full_name)}
-                                    ${renderField('Surname', client.surname)}
-                                    ${renderField('First Name', client.first_name)}
-                                    ${renderField('Date of Birth', Components.formatDisplayDate(client.date_of_birth))}
-                                    ${renderField('Place of Birth', client.place_of_birth)}
-                                    ${renderField('Birth Place', client.birth_place)}
-                                    ${renderField('Gender', client.gender)}
-                                    ${renderField('Nationality', client.nationality)}
-                                    ${renderField('Marital Status', client.marital_status)}
-                                    ${renderField('Country', client.personal_country)}
-                                    ${renderField('SP', Components.formatDisplayDate(client.sp))}
-                                    ${renderField('EF', Components.formatDisplayDate(client.ef))}
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    ${renderFormField('Surname', client.surname, true)}
+                                    ${renderFormField('First Name', client.first_name, true)}
+                                    ${renderFormField('Date of Birth', Components.formatDisplayDate(client.date_of_birth), true)}
+                                    ${renderFormField('Place of Birth', client.place_of_birth, true)}
+                                    ${renderFormField('Birth Place', client.birth_place, true)}
+                                    ${renderFormField('Nationality', client.nationality || 'SRI LANKAISE')}
+                                    ${renderFormField('Country', client.personal_country)}
+                                    ${renderFormField('SP', Components.formatDisplayDate(client.sp), true)}
+                                    ${renderFormField('EF', Components.formatDisplayDate(client.ef), true)}
+
+                                    <!-- Gender Display -->
+                                    <div class="space-y-1">
+                                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Gender</label>
+                                        <div class="flex flex-wrap items-center gap-2 pt-0.5">
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold ${client.gender === 'Male' ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-2xs' : 'bg-slate-50/70 border-slate-200 text-slate-400 opacity-60'}">
+                                                <span class="w-2 h-2 rounded-full ${client.gender === 'Male' ? 'bg-blue-600' : 'bg-slate-300'}"></span>
+                                                Male
+                                            </span>
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold ${client.gender === 'Female' ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-2xs' : 'bg-slate-50/70 border-slate-200 text-slate-400 opacity-60'}">
+                                                <span class="w-2 h-2 rounded-full ${client.gender === 'Female' ? 'bg-blue-600' : 'bg-slate-300'}"></span>
+                                                Female
+                                            </span>
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold ${(!client.gender || client.gender === 'Not Revealed') ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-2xs' : 'bg-slate-50/70 border-slate-200 text-slate-400 opacity-60'}">
+                                                <span class="w-2 h-2 rounded-full ${(!client.gender || client.gender === 'Not Revealed') ? 'bg-blue-600' : 'bg-slate-300'}"></span>
+                                                Not Revealed
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Marital Status Display -->
+                                    <div class="space-y-1">
+                                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Marital Status</label>
+                                        <div class="flex flex-wrap items-center gap-2 pt-0.5">
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold ${client.marital_status === 'Single' ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-2xs' : 'bg-slate-50/70 border-slate-200 text-slate-400 opacity-60'}">
+                                                <span class="w-2 h-2 rounded-full ${client.marital_status === 'Single' ? 'bg-blue-600' : 'bg-slate-300'}"></span>
+                                                Single
+                                            </span>
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold ${client.marital_status === 'Married' ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-2xs' : 'bg-slate-50/70 border-slate-200 text-slate-400 opacity-60'}">
+                                                <span class="w-2 h-2 rounded-full ${client.marital_status === 'Married' ? 'bg-blue-600' : 'bg-slate-300'}"></span>
+                                                Married
+                                            </span>
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold ${client.marital_status === 'Separated' ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-2xs' : 'bg-slate-50/70 border-slate-200 text-slate-400 opacity-60'}">
+                                                <span class="w-2 h-2 rounded-full ${client.marital_status === 'Separated' ? 'bg-blue-600' : 'bg-slate-300'}"></span>
+                                                Separated
+                                            </span>
+                                            ${(client.marital_status && !['Single', 'Married', 'Separated'].includes(client.marital_status)) ? `
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold bg-blue-50 border-blue-300 text-blue-700 shadow-2xs">
+                                                <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                                                ${App.escapeHtml(client.marital_status)}
+                                            </span>` : ''}
+                                        </div>
+                                    </div>
                                 </div>
                             `}
                         </div>
                     </div>
 
-                    <!-- SECTION B: Service Information -->
+                    <!-- 3. Service Information Card (Strictly 5 fields) -->
                     <div id="section-B" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
@@ -1893,7 +1989,7 @@ const Components = {
                                 <h3 class="text-base font-bold text-slate-900">Service Information</h3>
                             </div>
                             <div>
-                                ${isEditing('sectionB') ? `
+                                ${isEditing('sectionB') || isEditing('service') ? `
                                     <div class="flex items-center gap-2">
                                         <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
                                         <button id="saveSectionB-btn" onclick="App.saveProfileSection('${client.id}', 'sectionB')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
@@ -1908,42 +2004,47 @@ const Components = {
                         </div>
 
                         <div class="p-6">
-                            ${isEditing('sectionB') ? `
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            ${isEditing('sectionB') || isEditing('service') ? `
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    <!-- 1. Numéro OFPRA -->
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-700 mb-1">Numéro OFPRA</label>
                                         <input type="text" id="secB-numero_ofpra" value="${App.escapeHtml(client.numero_ofpra || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 2. Numéro APS (10 digits) -->
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-700 mb-1">Numéro APS (10 digits)</label>
-                                        <input type="text" id="secB-numero_aps" maxlength="10" value="${App.escapeHtml(client.numero_aps || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                                        <input type="text" id="secB-numero_aps" maxlength="10" value="${App.escapeHtml(client.numero_aps || '')}" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                                     </div>
+                                    <!-- 3. Delivered By -->
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-700 mb-1">Delivered By</label>
                                         <input type="text" id="secB-delivered_by" value="${App.escapeHtml(client.delivered_by || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 4. From Date -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">From Date</label>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">From</label>
                                         <input type="date" id="secB-from_date" value="${client.from_date ? client.from_date.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 5. To Date -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">To Date</label>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">To</label>
                                         <input type="date" id="secB-to_date" value="${client.to_date ? client.to_date.split('T')[0] : ''}" max="${todayStr}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                 </div>
                             ` : `
-                                <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    ${renderField('Numéro OFPRA', client.numero_ofpra)}
-                                    ${renderField('Numéro APS', client.numero_aps)}
-                                    ${renderField('Delivered By', client.delivered_by)}
-                                    ${renderField('From', Components.formatDisplayDate(client.from_date))}
-                                    ${renderField('To', Components.formatDisplayDate(client.to_date))}
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    ${renderFormField('Numéro OFPRA', client.numero_ofpra)}
+                                    ${renderFormField('Numéro APS', client.numero_aps)}
+                                    ${renderFormField('Delivered By', client.delivered_by)}
+                                    ${renderFormField('From', Components.formatDisplayDate(client.from_date))}
+                                    ${renderFormField('To', Components.formatDisplayDate(client.to_date))}
                                 </div>
                             `}
                         </div>
                     </div>
 
-                    <!-- SECTION C: Contact Information -->
+                    <!-- 4. Contact Information Card (Strictly 7 fields) -->
                     <div id="section-C" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">
@@ -1951,7 +2052,7 @@ const Components = {
                                 <h3 class="text-base font-bold text-slate-900">Contact Information</h3>
                             </div>
                             <div>
-                                ${isEditing('sectionC') ? `
+                                ${isEditing('sectionC') || isEditing('contact') ? `
                                     <div class="flex items-center gap-2">
                                         <button onclick="App.cancelProfileSectionEdit('${client.id}')" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition">Cancel</button>
                                         <button id="saveSectionC-btn" onclick="App.saveProfileSection('${client.id}', 'sectionC')" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-xs">Save</button>
@@ -1966,54 +2067,59 @@ const Components = {
                         </div>
 
                         <div class="p-6">
-                            ${isEditing('sectionC') ? `
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            ${isEditing('sectionC') || isEditing('contact') ? `
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    <!-- 1. Primary Phone* (10 digits starts with 0) -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Phone * (10 digits starts with 0)</label>
-                                        <input type="text" id="secC-phone_number" value="${App.escapeHtml(client.phone_number || '')}" maxlength="10" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Primary Phone <span class="text-red-500">*</span></label>
+                                        <input type="text" id="secC-phone_number" value="${App.escapeHtml(client.phone_number || '')}" maxlength="10" placeholder="0763796000" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                                     </div>
+                                    <!-- 2. Secondary Phone (10 digits starts with 0) -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Secondary Phone (10 digits)</label>
-                                        <input type="text" id="secC-secondary_phone" value="${App.escapeHtml(client.secondary_phone || '')}" maxlength="10" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Secondary Phone</label>
+                                        <input type="text" id="secC-secondary_phone" value="${App.escapeHtml(client.secondary_phone || '')}" maxlength="10" placeholder="0XXXXXXXXX" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                                     </div>
+                                    <!-- 3. Email Address -->
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
-                                        <input type="email" id="secC-email" value="${App.escapeHtml(client.email || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <input type="email" id="secC-email" value="${App.escapeHtml(client.email || '')}" placeholder="client@example.com" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
-                                    <div class="md:col-span-3">
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Address *</label>
-                                        <input type="text" id="secC-address" value="${App.escapeHtml(client.address || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <!-- 4. Address* -->
+                                    <div class="md:col-span-2 lg:col-span-3">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Address <span class="text-red-500">*</span></label>
+                                        <input type="text" id="secC-address" value="${App.escapeHtml(client.address || '')}" placeholder="Street address" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 5. Ville* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Ville *</label>
-                                        <input type="text" id="secC-ville" value="${App.escapeHtml(client.ville || client.city || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Ville <span class="text-red-500">*</span></label>
+                                        <input type="text" id="secC-ville" value="${App.escapeHtml(client.ville || client.city || '')}" placeholder="City / Ville" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
+                                    <!-- 6. Postal Code* -->
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Postal Code * (5 digits)</label>
-                                        <input type="text" id="secC-postal_code" value="${App.escapeHtml(client.postal_code || '')}" maxlength="5" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Postal Code <span class="text-red-500">*</span></label>
+                                        <input type="text" id="secC-postal_code" value="${App.escapeHtml(client.postal_code || '')}" maxlength="5" placeholder="75001 (5 digits)" oninput="this.value = this.value.replace(/\D/g, '')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 tabular-nums">
                                     </div>
+                                    <!-- 7. Country -->
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-700 mb-1">Country</label>
-                                        <input type="text" id="secC-country" value="${App.escapeHtml(client.country || '')}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <input type="text" id="secC-country" value="${App.escapeHtml(client.country || '')}" placeholder="France" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
                                 </div>
                             ` : `
-                                <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    ${renderField('Primary Phone', client.phone_number)}
-                                    ${renderField('Secondary Phone', client.secondary_phone)}
-                                    ${renderField('Email Address', client.email)}
-                                    <div class="col-span-2 md:col-span-3">
-                                        ${renderField('Address', client.address)}
-                                    </div>
-                                    ${renderField('Ville', client.ville || client.city)}
-                                    ${renderField('Postal Code', client.postal_code)}
-                                    ${renderField('Country', client.country)}
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    ${renderFormField('Primary Phone', client.phone_number, true)}
+                                    ${renderFormField('Secondary Phone', client.secondary_phone)}
+                                    ${renderFormField('Email Address', client.email)}
+                                    ${renderFormField('Address', client.address, true, 'md:col-span-2 lg:col-span-3')}
+                                    ${renderFormField('Ville', client.ville || client.city, true)}
+                                    ${renderFormField('Postal Code', client.postal_code, true)}
+                                    ${renderFormField('Country', client.country)}
                                 </div>
                             `}
                         </div>
                     </div>
 
-                    <!-- CLIENT FILES SECTION (Preserved) -->
+                    <!-- 5. CLIENT FILES SECTION (Preserved below the 4 cards) -->
                     <div id="profile-files-section" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div class="flex items-center gap-2.5">

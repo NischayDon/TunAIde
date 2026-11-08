@@ -1902,9 +1902,9 @@ const App = {
         const date_of_birth = document.getElementById('newClientDob')?.value || null;
         const place_of_birth = (document.getElementById('newClientPlaceOfBirth')?.value || '').trim();
         const birth_place = (document.getElementById('newClientBirthPlace')?.value || '').trim();
-        const gender = document.getElementById('newClientGender')?.value || null;
+        const gender = document.querySelector('input[name="newClientGender"]:checked')?.value || document.getElementById('newClientGender')?.value || null;
         const nationality = (document.getElementById('newClientNationality')?.value || 'SRI LANKAISE').trim();
-        const marital_status = document.getElementById('newClientMaritalStatus')?.value || null;
+        const marital_status = document.querySelector('input[name="newClientMaritalStatus"]:checked')?.value || document.getElementById('newClientMaritalStatus')?.value || null;
         const personal_country = (document.getElementById('newClientPersonalCountry')?.value || '').trim() || null;
         const sp = document.getElementById('newClientSp')?.value || null;
         const ef = document.getElementById('newClientEf')?.value || null;
@@ -2160,14 +2160,19 @@ const App = {
     },
 
     saveProfileSection: async (clientId, sectionName) => {
-        const btn = document.getElementById(`save${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)}-btn`);
+        const btn = document.getElementById(`save${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)}-btn`)
+            || document.getElementById(`save${sectionName === 'personal' ? 'SectionA' : sectionName === 'service' ? 'SectionB' : sectionName === 'contact' ? 'SectionC' : ''}-btn`);
+        
         if (btn) {
             btn.disabled = true;
             btn.innerHTML = ThinkingLoader.inline('working', 'Saving…');
             ThinkingLoader.init(btn);
         }
 
+        const alphaRegex = /^[A-Za-zÀ-ÖØ-öø-ÿ\s\-']+$/;
+        const todayStr = new Date().toISOString().split('T')[0];
         let payload = {};
+
         if (sectionName === 'header') {
             const client_date = document.getElementById('secHdr-date')?.value || null;
             const service_type = document.getElementById('secHdr-service_type')?.value || null;
@@ -2193,40 +2198,114 @@ const App = {
                 status,
                 assigned_to_id: assigned_to_id || null
             };
-        } else if (sectionName === 'sectionA') {
-            payload = {
-                surname: document.getElementById('secA-surname')?.value?.trim().toUpperCase(),
-                first_name: document.getElementById('secA-first_name')?.value?.trim(),
-                date_of_birth: document.getElementById('secA-date_of_birth')?.value || null,
-                place_of_birth: document.getElementById('secA-place_of_birth')?.value?.trim() || null,
-                birth_place: document.getElementById('secA-birth_place')?.value?.trim() || null,
-                gender: document.getElementById('secA-gender')?.value?.trim() || null,
-                nationality: document.getElementById('secA-nationality')?.value?.trim() || null,
-                marital_status: document.getElementById('secA-marital_status')?.value?.trim() || null,
-                personal_country: document.getElementById('secA-personal_country')?.value?.trim() || null,
-                sp: document.getElementById('secA-sp')?.value || null,
-                ef: document.getElementById('secA-ef')?.value || null
-            };
-        } else if (sectionName === 'sectionB') {
-            payload = {
-                numero_ofpra: document.getElementById('secB-numero_ofpra')?.value?.trim() || null,
-                numero_aps: document.getElementById('secB-numero_aps')?.value?.trim() || null,
-                delivered_by: document.getElementById('secB-delivered_by')?.value?.trim() || null,
-                from_date: document.getElementById('secB-from_date')?.value || null,
-                to_date: document.getElementById('secB-to_date')?.value || null
-            };
-        } else if (sectionName === 'sectionC') {
-            payload = {
-                phone_number: document.getElementById('secC-phone_number')?.value?.trim() || null,
-                secondary_phone: document.getElementById('secC-secondary_phone')?.value?.trim() || null,
-                email: document.getElementById('secC-email')?.value?.trim() || null,
-                address: document.getElementById('secC-address')?.value?.trim() || null,
-                ville: document.getElementById('secC-ville')?.value?.trim() || null,
-                postal_code: document.getElementById('secC-postal_code')?.value?.trim() || null,
-                country: document.getElementById('secC-country')?.value?.trim() || null
-            };
-        }
+        } else if (sectionName === 'sectionA' || sectionName === 'personal') {
+            const surname = document.getElementById('secA-surname')?.value?.trim().toUpperCase();
+            const first_name = document.getElementById('secA-first_name')?.value?.trim();
+            const date_of_birth = document.getElementById('secA-date_of_birth')?.value || null;
+            const place_of_birth = document.getElementById('secA-place_of_birth')?.value?.trim() || null;
+            const birth_place = document.getElementById('secA-birth_place')?.value?.trim() || null;
+            const gender = document.querySelector('input[name="secA-gender"]:checked')?.value || document.getElementById('secA-gender')?.value?.trim() || null;
+            const nationality = document.getElementById('secA-nationality')?.value?.trim() || 'SRI LANKAISE';
+            const marital_status = document.querySelector('input[name="secA-marital_status"]:checked')?.value || document.getElementById('secA-marital_status')?.value?.trim() || null;
+            const personal_country = document.getElementById('secA-personal_country')?.value?.trim() || null;
+            const sp = document.getElementById('secA-sp')?.value || null;
+            const ef = document.getElementById('secA-ef')?.value || null;
 
+            if (!surname) { alert('Surname is required.'); if (btn) btn.disabled = false; return; }
+            if (!alphaRegex.test(surname)) { alert('Surname must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+            if (!first_name) { alert('First Name is required.'); if (btn) btn.disabled = false; return; }
+            if (!alphaRegex.test(first_name)) { alert('First Name must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+            if (!date_of_birth) { alert('Date of Birth is required.'); if (btn) btn.disabled = false; return; }
+            if (date_of_birth > todayStr) { alert('Date of Birth cannot be in the future.'); if (btn) btn.disabled = false; return; }
+            if (!place_of_birth) { alert('Place of Birth is required.'); if (btn) btn.disabled = false; return; }
+            if (!alphaRegex.test(place_of_birth)) { alert('Place of Birth must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+            if (!birth_place) { alert('Birth Place is required.'); if (btn) btn.disabled = false; return; }
+            if (!alphaRegex.test(birth_place)) { alert('Birth Place must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+            if (nationality && !alphaRegex.test(nationality)) { alert('Nationality must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+            if (personal_country && !alphaRegex.test(personal_country)) { alert('Country must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+            if (!sp) { alert('SP date is required.'); if (btn) btn.disabled = false; return; }
+            if (sp > todayStr) { alert('SP date cannot be in the future.'); if (btn) btn.disabled = false; return; }
+            if (!ef) { alert('EF date is required.'); if (btn) btn.disabled = false; return; }
+            if (ef > todayStr) { alert('EF date cannot be in the future.'); if (btn) btn.disabled = false; return; }
+
+            payload = {
+                surname,
+                first_name,
+                date_of_birth,
+                place_of_birth,
+                birth_place,
+                gender,
+                nationality,
+                marital_status,
+                personal_country,
+                sp,
+                ef
+            };
+        } else if (sectionName === 'sectionB' || sectionName === 'service') {
+            const numero_ofpra = document.getElementById('secB-numero_ofpra')?.value?.trim() || null;
+            const numero_aps = document.getElementById('secB-numero_aps')?.value?.trim() || null;
+            const delivered_by = document.getElementById('secB-delivered_by')?.value?.trim() || null;
+            const from_date = document.getElementById('secB-from_date')?.value || null;
+            const to_date = document.getElementById('secB-to_date')?.value || null;
+
+            if (numero_aps && !/^\d{10}$/.test(numero_aps)) {
+                alert('Numéro APS must be exactly 10 numeric digits.');
+                if (btn) btn.disabled = false;
+                return;
+            }
+            if (from_date && from_date > todayStr) {
+                alert('From date cannot be in the future.');
+                if (btn) btn.disabled = false;
+                return;
+            }
+            if (to_date && to_date > todayStr) {
+                alert('To date cannot be in the future.');
+                if (btn) btn.disabled = false;
+                return;
+            }
+            if (from_date && to_date && to_date < from_date) {
+                alert('To date must be on or after From date.');
+                if (btn) btn.disabled = false;
+                return;
+            }
+
+            payload = {
+                numero_ofpra,
+                numero_aps,
+                delivered_by,
+                from_date,
+                to_date
+            };
+        } else if (sectionName === 'sectionC' || sectionName === 'contact') {
+            const phone_number = document.getElementById('secC-phone_number')?.value?.trim() || null;
+            const secondary_phone = document.getElementById('secC-secondary_phone')?.value?.trim() || null;
+            const email = document.getElementById('secC-email')?.value?.trim() || null;
+            const address = document.getElementById('secC-address')?.value?.trim() || null;
+            const ville = document.getElementById('secC-ville')?.value?.trim() || null;
+            const postal_code = document.getElementById('secC-postal_code')?.value?.trim() || null;
+            const country = document.getElementById('secC-country')?.value?.trim() || null;
+
+            if (!phone_number) { alert('Primary Phone is required.'); if (btn) btn.disabled = false; return; }
+            if (!/^0\d{9}$/.test(phone_number)) { alert('Primary Phone must be exactly 10 digits starting with 0.'); if (btn) btn.disabled = false; return; }
+            if (secondary_phone && !/^0\d{9}$/.test(secondary_phone)) { alert('Secondary Phone must be exactly 10 digits starting with 0.'); if (btn) btn.disabled = false; return; }
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Invalid Email Address format.'); if (btn) btn.disabled = false; return; }
+            if (!address) { alert('Address is required.'); if (btn) btn.disabled = false; return; }
+            if (!ville) { alert('Ville is required.'); if (btn) btn.disabled = false; return; }
+            if (!alphaRegex.test(ville)) { alert('Ville must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+            if (!postal_code) { alert('Postal Code is required.'); if (btn) btn.disabled = false; return; }
+            if (!/^\d{5}$/.test(postal_code)) { alert('Postal Code must be exactly 5 numeric digits.'); if (btn) btn.disabled = false; return; }
+            if (country && !alphaRegex.test(country)) { alert('Country must contain alphabets only.'); if (btn) btn.disabled = false; return; }
+
+            payload = {
+                phone_number,
+                secondary_phone,
+                email,
+                address,
+                ville,
+                postal_code,
+                country
+            };
+        }
 
         try {
             const res = await App.authFetch(`${App.API_URL}/api/ledger/clients/${clientId}`, {
@@ -2238,6 +2317,10 @@ const App = {
             if (res.ok) {
                 App.state.currentClient = await res.json();
                 App.state.activeProfileSection = null;
+                const idx = (App.state.clients || []).findIndex(c => c.id === clientId);
+                if (idx !== -1) {
+                    App.state.clients[idx] = App.state.currentClient;
+                }
                 const main = document.getElementById('main-content');
                 if (main && App.state.view === 'client-profile') {
                     main.innerHTML = Components.ClientProfileView(App.state.currentClient, null);
@@ -2254,7 +2337,6 @@ const App = {
             if (btn) btn.disabled = false;
         }
     },
-
     confirmDeleteClient: (clientId, clientName, event) => {
         if (event) event.stopPropagation();
         document.querySelectorAll('.action-menu-dropdown').forEach(d => d.classList.add('hidden'));
